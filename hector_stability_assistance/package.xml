@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>hector_stability_assistance</name>
+  <version>0.0.0</version>
+  <description>The hector_stability_assistance package</description>
+
+  <maintainer email="oehler@sim.tu-darmstadt.de">Martin Oehler</maintainer>
+
+  <license>GPLv3</license>
+
+
+  <author email="oehler@sim.tu-darmstadt.de">Martin Oehler</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <depend>hector_heightmap_pose_prediction</depend>
+  <depend>hector_pose_prediction_interface</depend>
+  <depend>hector_rviz_overlay</depend>
+  <depend>visualization_msgs</depend>
+
+  <!-- The export tag contains other, unspecified, tags -->
+  <export>
+  </export>
+</package>
