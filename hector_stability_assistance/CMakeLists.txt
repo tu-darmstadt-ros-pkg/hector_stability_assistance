@@ -8,6 +8,10 @@ find_package(catkin REQUIRED COMPONENTS
   hector_pose_prediction_interface
   hector_rviz_overlay
   visualization_msgs
+  grid_map_msgs
+  std_msgs
+  sensor_msgs
+  eigen_conversions
 )
 
 ################################################
@@ -36,7 +40,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES hector_stability_assistance
-  CATKIN_DEPENDS hector_heightmap_pose_prediction hector_pose_prediction_interface hector_rviz_overlay visualization_msgs
+  CATKIN_DEPENDS hector_heightmap_pose_prediction hector_pose_prediction_interface hector_rviz_overlay visualization_msgs grid_map_msgs std_msgs sensor_msgs eigen_conversions
 #  DEPENDS system_lib
 )
 

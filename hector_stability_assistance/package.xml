@@ -16,6 +16,10 @@
   <depend>hector_pose_prediction_interface</depend>
   <depend>hector_rviz_overlay</depend>
   <depend>visualization_msgs</depend>
+  <depend>grid_map_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>eigen_conversions</depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
