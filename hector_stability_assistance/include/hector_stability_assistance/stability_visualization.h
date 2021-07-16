@@ -34,6 +34,7 @@ private:
 
   // Parameters
   double update_frequency_;
+  std::string elevation_layer_name_;
 
   ros::Timer timer_;
   ros::Subscriber grid_map_sub_;
@@ -50,6 +51,17 @@ private:
   std::set<std::string> missing_joint_states_;
   std::unordered_map<std::string, float> joint_states_;
 };
+
+template <typename T>
+std::string setToString(const std::set<T>& set) {
+  std::stringstream ss;
+  ss << "[";
+  for (auto entry: set) {
+    ss << entry << ",";
+  }
+  ss << "]";
+  return ss.str();
+}
 
 }
 

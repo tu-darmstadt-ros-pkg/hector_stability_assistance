@@ -12,7 +12,8 @@ namespace hector_stability_assistance  {
 
 class LocalGridMap : public hector_world_heightmap::WorldHeightmapInterface<float> {
 public:
-  LocalGridMap(const grid_map_msgs::GridMapConstPtr& grid_map_msg, const std::string& layer_name) {
+  LocalGridMap(const grid_map_msgs::GridMapConstPtr& grid_map_msg, const std::string& layer_name)
+  : layer_name_(layer_name){
     grid_map_ = std::make_shared<grid_map::GridMap>();
     grid_map::GridMapRosConverter::fromMessage(*grid_map_msg, *grid_map_, std::vector<std::string>(1, layer_name));
   }

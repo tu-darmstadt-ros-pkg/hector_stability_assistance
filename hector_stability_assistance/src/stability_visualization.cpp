@@ -14,6 +14,8 @@ StabilityVisualization::StabilityVisualization(const ros::NodeHandle &nh, const 
 bool StabilityVisualization::init() {
   // Parameters
   update_frequency_ = pnh_.param("update_frequency", 10.0);
+  elevation_layer_name_ = pnh_.param("elevation_layer_name", std::string("elevation"));
+
 
   // Load urdf model
   if (!urdf_model_.initParam("robot_description")) {
@@ -23,7 +25,10 @@ bool StabilityVisualization::init() {
 
   for (const auto &kv : urdf_model_.joints_)
   {
-    missing_joint_states_.insert( kv.first );
+    if (kv.second->type != urdf::Joint::FIXED && kv.second->type != urdf::Joint::UNKNOWN && !kv.second->mimic) {
+      missing_joint_states_.insert( kv.first );
+      ROS_DEBUG_STREAM("Adding required joint: " << kv.first << " type: " << kv.second->type);
+    }
   }
 
   // Subscriber and Publisher
@@ -34,7 +39,7 @@ bool StabilityVisualization::init() {
 
   grid_map_sub_ = nh_.subscribe<grid_map_msgs::GridMap>("elevation_map", 1, &StabilityVisualization::gridMapCallback, this);
   joint_state_sub_ = nh_.subscribe<sensor_msgs::JointState>("/joint_states", 1, &StabilityVisualization::jointStateCallback, this);
-  timer_ = nh_.createTimer(ros::Duration(1.0/update_frequency_), &StabilityVisualization::timerCallback, this);
+  timer_ = nh_.createTimer(ros::Duration(1.0/update_frequency_), &StabilityVisualization::timerCallback, this, false);
   return true;
 }
 
@@ -47,9 +52,10 @@ void StabilityVisualization::timerCallback(const ros::TimerEvent&) {
 }
 
 void StabilityVisualization::update() {
+  ROS_INFO_STREAM("Updating stability");
   // Update robot state
   if (!missing_joint_states_.empty()) {
-    ROS_WARN_STREAM_THROTTLE(1, "Can't update stability estimation: The following joint states are still missing: ");
+    ROS_WARN_STREAM_THROTTLE(1, "Can't update stability estimation: The following joint states are still missing: " << setToString(missing_joint_states_));
     return;
   }
   auto robot_height_map = std::make_shared<hector_heightmap_pose_prediction::UrdfRobotHeightmapProvider<float>>(urdf_model_, joint_states_);
@@ -59,7 +65,7 @@ void StabilityVisualization::update() {
     ROS_WARN_STREAM_THROTTLE(1, "Can't update stability estimation: No elevation map has been received yet.");
     return;
   }
-  hector_world_heightmap::WorldHeightmapInterface<float>::Ptr height_map = std::make_shared<LocalGridMap>(latest_grid_map_, "elevation");
+  hector_world_heightmap::WorldHeightmapInterface<float>::Ptr height_map = std::make_shared<LocalGridMap>(latest_grid_map_, elevation_layer_name_);
 
   // Get robot position
   geometry_msgs::TransformStamped transform_msg;
@@ -84,7 +90,11 @@ void StabilityVisualization::update() {
 
   hector_pose_prediction_interface::math::SupportPolygon<float> support_polygon;
   hector_pose_prediction_interface::ContactInformation<float> contact_information;
-  if (!pose_predictor_->estimateContactInformation(robot_pose, support_polygon, contact_information)) {
+//  if (!pose_predictor_->estimateContactInformation(robot_pose, support_polygon, contact_information)) {
+//    ROS_WARN("Support polygon estimation failed.");
+//    return;
+//  }
+  if (!pose_predictor_->estimateSupportPolygon(robot_pose, support_polygon)) {
     ROS_WARN("Support polygon estimation failed.");
     return;
   }
