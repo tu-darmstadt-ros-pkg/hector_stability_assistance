@@ -57,9 +57,13 @@ include_directories(
 ## Declare a C++ library
 add_library(${PROJECT_NAME}
   include/${PROJECT_NAME}/stability_visualization.h
+  include/${PROJECT_NAME}/local_grid_map.h src/local_grid_map.cpp
+  include/${PROJECT_NAME}/local_grid_map.h src/sub_map.cpp
+  include/${PROJECT_NAME}/sub_map.h src/visualization.cpp
 
   src/stability_visualization.cpp
-  include/hector_stability_assistance/local_grid_map.h src/local_grid_map.cpp include/hector_stability_assistance/local_grid_map.h src/sub_map.cpp include/hector_stability_assistance/sub_map.h)
+  include/hector_stability_assistance/visualization.h
+)
 add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
 
