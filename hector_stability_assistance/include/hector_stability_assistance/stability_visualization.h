@@ -16,8 +16,6 @@
 
 namespace hector_stability_assistance {
 
-typedef double SCALAR_TYPE;
-
 class StabilityVisualization {
 public:
   StabilityVisualization(const ros::NodeHandle& nh, const ros::NodeHandle& pnh);
@@ -47,10 +45,10 @@ private:
 
   grid_map_msgs::GridMapConstPtr latest_grid_map_;
 
-  std::shared_ptr<hector_pose_prediction_interface::PosePredictor<SCALAR_TYPE>> pose_predictor_;
+  std::shared_ptr<hector_pose_prediction_interface::PosePredictor<float>> pose_predictor_;
   urdf::Model urdf_model_;
   std::set<std::string> missing_joint_states_;
-  std::unordered_map<std::string, SCALAR_TYPE> joint_states_;
+  std::unordered_map<std::string, float> joint_states_;
 };
 
 }

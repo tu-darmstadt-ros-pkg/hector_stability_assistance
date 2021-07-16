@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   sensor_msgs
   eigen_conversions
+  grid_map_ros
 )
 
 ################################################
@@ -40,7 +41,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES hector_stability_assistance
-  CATKIN_DEPENDS hector_heightmap_pose_prediction hector_pose_prediction_interface hector_rviz_overlay visualization_msgs grid_map_msgs std_msgs sensor_msgs eigen_conversions
+  CATKIN_DEPENDS hector_heightmap_pose_prediction hector_pose_prediction_interface hector_rviz_overlay visualization_msgs grid_map_msgs std_msgs sensor_msgs eigen_conversions grid_map_ros
 #  DEPENDS system_lib
 )
 
@@ -58,7 +59,7 @@ add_library(${PROJECT_NAME}
   include/${PROJECT_NAME}/stability_visualization.h
 
   src/stability_visualization.cpp
-)
+  include/hector_stability_assistance/local_grid_map.h src/local_grid_map.cpp include/hector_stability_assistance/local_grid_map.h src/sub_map.cpp include/hector_stability_assistance/sub_map.h)
 add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
 

@@ -20,6 +20,7 @@
   <depend>std_msgs</depend>
   <depend>sensor_msgs</depend>
   <depend>eigen_conversions</depend>
+  <depend>grid_map_ros</depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

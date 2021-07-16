@@ -4,6 +4,8 @@
 #include <hector_heightmap_pose_prediction/robot_heightmap_providers/urdf_robot_heightmap_provider.h>
 #include <eigen_conversions/eigen_msg.h>
 
+#include <hector_stability_assistance/local_grid_map.h>
+
 namespace hector_stability_assistance {
 
 StabilityVisualization::StabilityVisualization(const ros::NodeHandle &nh, const ros::NodeHandle &pnh)
@@ -50,14 +52,14 @@ void StabilityVisualization::update() {
     ROS_WARN_STREAM_THROTTLE(1, "Can't update stability estimation: The following joint states are still missing: ");
     return;
   }
-  auto robot_height_map = std::make_shared<hector_heightmap_pose_prediction::UrdfRobotHeightmapProvider<SCALAR_TYPE>>(urdf_model_, joint_states_);
+  auto robot_height_map = std::make_shared<hector_heightmap_pose_prediction::UrdfRobotHeightmapProvider<float>>(urdf_model_, joint_states_);
 
   // Update map
   if (!latest_grid_map_) {
     ROS_WARN_STREAM_THROTTLE(1, "Can't update stability estimation: No elevation map has been received yet.");
     return;
   }
-  hector_world_heightmap::WorldHeightmapInterface<SCALAR_TYPE>::Ptr height_map;
+  hector_world_heightmap::WorldHeightmapInterface<float>::Ptr height_map = std::make_shared<LocalGridMap>(latest_grid_map_, "elevation");
 
   // Get robot position
   geometry_msgs::TransformStamped transform_msg;
@@ -70,24 +72,28 @@ void StabilityVisualization::update() {
     return;
   }
 
-  Eigen::Matrix<SCALAR_TYPE, 3, 1> robot_position;
-  Eigen::Quaternion<SCALAR_TYPE> robot_orientation;
+  Eigen::Matrix<double, 3, 1> robot_position;
+  Eigen::Quaternion<double> robot_orientation;
   tf::vectorMsgToEigen(transform_msg.transform.translation, robot_position);
   tf::quaternionMsgToEigen(transform_msg.transform.rotation, robot_orientation);
-  hector_pose_prediction_interface::math::Pose<SCALAR_TYPE> robot_pose(robot_position, robot_orientation);
+  hector_pose_prediction_interface::math::Pose<float> robot_pose(robot_position.cast<float>(), robot_orientation.cast<float>());
 
 
   // Generate pose prediction with current state
-  pose_predictor_ = std::make_shared<hector_heightmap_pose_prediction::HeightmapPosePredictor<SCALAR_TYPE, false>>(height_map, robot_height_map);
+  pose_predictor_ = std::make_shared<hector_heightmap_pose_prediction::HeightmapPosePredictor<float, false>>(height_map, robot_height_map);
 
-  hector_pose_prediction_interface::math::SupportPolygon<SCALAR_TYPE> support_polygon;
-  hector_pose_prediction_interface::ContactInformation<SCALAR_TYPE> contact_information;
+  hector_pose_prediction_interface::math::SupportPolygon<float> support_polygon;
+  hector_pose_prediction_interface::ContactInformation<float> contact_information;
   if (!pose_predictor_->estimateContactInformation(robot_pose, support_polygon, contact_information)) {
     ROS_WARN("Support polygon estimation failed.");
     return;
   }
 
   // Publish results
+  auto min_it = std::min_element(support_polygon.edge_stabilities.begin(), support_polygon.edge_stabilities.end());
+  std_msgs::Float64 stability_msg;
+  stability_msg.data = *min_it;
+  stability_pub_.publish(stability_msg);
 }
 
 void StabilityVisualization::jointStateCallback(const sensor_msgs::JointStateConstPtr& joint_state_msg) {
