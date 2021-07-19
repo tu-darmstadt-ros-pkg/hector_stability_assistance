@@ -16,10 +16,11 @@ void deleteAllMarkers(ros::Publisher &pub)
   pub.publish(array);
 }
 
-void appendPointVisualization(const std::vector<Eigen::Vector3d> &points, visualization_msgs::MarkerArray &marker_array,
-                            const std::string& frame_id, const std::string& ns, const Eigen::Vector3f &color, double size)
+template <typename T>
+void appendPointVisualization(const hector_pose_prediction_interface::math::Vector3List<T> &points, visualization_msgs::MarkerArray &marker_array,
+                              const std::string& frame_id, const std::string& ns, const Eigen::Vector3f &color, double size)
 {
-  for (unsigned int j = 0; j < points.size(); j++) {
+  for (size_t j = 0; j < points.size(); j++) {
     visualization_msgs::Marker marker;
     marker.type = visualization_msgs::Marker::SPHERE;
     marker.action = visualization_msgs::Marker::ADD;
@@ -33,18 +34,19 @@ void appendPointVisualization(const std::vector<Eigen::Vector3d> &points, visual
 
     marker.header.frame_id = frame_id;
     marker.ns = ns;
-    marker.id = j;
+    marker.id = static_cast<int>(j);
 
     Eigen::Affine3d marker_pose = Eigen::Affine3d::Identity();
-    marker_pose.translation() = points[j];
+    marker_pose.translation() = points[j].template cast<double>();
     tf::poseEigenToMsg(marker_pose, marker.pose);
     marker_array.markers.push_back(marker);
   }
 }
 
-void appendSupportPolygonVisualization(const hector_pose_prediction_interface::math::SupportPolygon<float>& support_polygon, visualization_msgs::MarkerArray &marker_array, const std::string& frame_id, const std::string& ns)
+template <typename T>
+void appendSupportPolygonVisualization(const hector_pose_prediction_interface::math::SupportPolygon<T>& support_polygon, visualization_msgs::MarkerArray &marker_array, const std::string& frame_id, const std::string& ns)
 {
-  for (unsigned i = 0; i < support_polygon.contact_hull_points.size(); i++) {
+  for (size_t i = 0; i < support_polygon.contact_hull_points.size(); ++i) {
     visualization_msgs::Marker marker;
     marker.type = visualization_msgs::Marker::ARROW;
     marker.action = visualization_msgs::Marker::ADD;
@@ -53,30 +55,30 @@ void appendSupportPolygonVisualization(const hector_pose_prediction_interface::m
     marker.scale.z = 0.00001;
 
     // calculate stability color
-    float stability_pct = 1.0f;
+    T stability_pct = 1.0f;
     if (i < support_polygon.edge_stabilities.size()) {
-      float max_stability = 6.0f;
-      float clamped_stability = std::max(0.0f, std::min(support_polygon.edge_stabilities[i], max_stability));
+      T max_stability = 6.0f;
+      T clamped_stability = std::max(0.0f, std::min(support_polygon.edge_stabilities[i], max_stability));
       stability_pct = clamped_stability/max_stability;
     }
     marker.color.a = 1.0;
-    marker.color.r = 1.0f - stability_pct;
-    marker.color.g = stability_pct;
+    marker.color.r = 1.0f - static_cast<float>(stability_pct);
+    marker.color.g = static_cast<float>(stability_pct);
     marker.color.b = 0;
 
     marker.header.frame_id = frame_id;
     marker.ns = ns;
-    marker.id = i;
+    marker.id = static_cast<int>(i);
 
     Eigen::Affine3d marker_pose = Eigen::Affine3d::Identity();
     tf::poseEigenToMsg(marker_pose, marker.pose);
 
     geometry_msgs::Point point_start;
-    tf::pointEigenToMsg(support_polygon.contact_hull_points[i], point_start);
+    tf::pointEigenToMsg(support_polygon.contact_hull_points[i].template cast<double>(), point_start);
     marker.points.push_back(point_start);
     int ip1 = (i + 1) % support_polygon.contact_hull_points.size(); // wrap around
     geometry_msgs::Point point_end;
-    tf::pointEigenToMsg(support_polygon.contact_hull_points[ip1], point_end);
+    tf::pointEigenToMsg(support_polygon.contact_hull_points[ip1].template cast<double>(), point_end);
     marker.points.push_back(point_end);
     marker_array.markers.push_back(marker);
   }
