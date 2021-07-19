@@ -7,14 +7,10 @@
 
 #include <hector_pose_prediction_interface/types.h>
 
-void deleteAllMarkers(ros::Publisher &pub)
-{
-  visualization_msgs::MarkerArray array;
-  visualization_msgs::Marker marker;
-  marker.action = visualization_msgs::Marker::DELETEALL;
-  array.markers.push_back(marker);
-  pub.publish(array);
-}
+namespace hector_stability_assistance {
+namespace visualization {
+
+void deleteAllMarkers(ros::Publisher &pub);
 
 template <typename T>
 void appendPointVisualization(const hector_pose_prediction_interface::math::Vector3List<T> &points, visualization_msgs::MarkerArray &marker_array,
@@ -83,6 +79,11 @@ void appendSupportPolygonVisualization(const hector_pose_prediction_interface::m
     marker_array.markers.push_back(marker);
   }
 }
+
+}
+}
+
+
 
 
 

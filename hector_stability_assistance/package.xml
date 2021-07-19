@@ -14,6 +14,7 @@
   <buildtool_depend>catkin</buildtool_depend>
   <depend>hector_heightmap_pose_prediction</depend>
   <depend>hector_pose_prediction_interface</depend>
+  <depend>hector_world_heightmap_ros</depend>
   <depend>hector_rviz_overlay</depend>
   <depend>visualization_msgs</depend>
   <depend>grid_map_msgs</depend>

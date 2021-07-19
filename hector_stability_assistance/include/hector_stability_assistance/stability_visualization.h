@@ -43,6 +43,8 @@ private:
   ros::Publisher traction_pub_;
   ros::Publisher support_polygon_pub_;
   ros::Publisher com_pub_;
+  ros::Publisher robot_heightmap_pub_;
+  ros::Publisher submap_pub_;
 
   grid_map_msgs::GridMapConstPtr latest_grid_map_;
 
