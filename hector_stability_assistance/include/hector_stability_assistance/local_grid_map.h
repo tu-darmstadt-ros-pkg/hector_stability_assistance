@@ -16,6 +16,7 @@ public:
   : layer_name_(layer_name){
     grid_map_ = std::make_shared<grid_map::GridMap>();
     grid_map::GridMapRosConverter::fromMessage(*grid_map_msg, *grid_map_, std::vector<std::string>(1, layer_name));
+    grid_map_->convertToDefaultStartIndex();
   }
 
   bool hasMapAt(const hector_world_heightmap::math::Vector3<float> &location) const override {
@@ -28,21 +29,38 @@ public:
   hector_world_heightmap::HeightmapRef<float>::ConstPtr getSubMap(const hector_world_heightmap::math::Vector3<float> &origin,
                                                                   Eigen::Index rows,
                                                                   Eigen::Index cols) const override {
-    if (!hasMapAt(origin)) {
-      return nullptr;
-    }
+    ROS_INFO("Requested submap at [%f, %f, %f] with [%lu, %lu]", origin.x(), origin.y(), origin.z(), rows, cols);
+//    if (!hasMapAt(origin)) {
+//      ROS_INFO_STREAM("No map available");
+//      return nullptr;
+//    }
+
+    ROS_INFO("Grid map origin at [%f, %f] with [%d, %d]", grid_map_->getPosition().cast<float>().x(), grid_map_->getPosition().cast<float>().y(), grid_map_->getSize()[0], grid_map_->getSize()[1]);
+    ROS_INFO_STREAM("Resolution: " << grid_map_->getResolution());
+//    hector_world_heightmap::math::BlockIndices indices = hector_world_heightmap::math::blockCoordinatesToIndices<float>(
+//        grid_map_->getPosition().cast<float>(),
+//            grid_map_->getSize()[0], grid_map_->getSize()[1],
+//            origin.topRows<2>(), rows, cols,
+//            grid_map_->getResolution());
+//    grid_map::Index start_index;
+//    start_index.x() = static_cast<int>(indices.x0);
+//    start_index.y() = static_cast<int>(indices.y0);
+
+    grid_map::Position position = origin.topRows<2>().cast<double>();
+    grid_map::Index index;
+    grid_map_->getIndex(position, index);
+
+    ROS_INFO_STREAM("Requested index: " << index.x() << ", " << index.y());
 
 
-    hector_world_heightmap::math::BlockIndices indices = hector_world_heightmap::math::blockCoordinatesToIndices<float>(grid_map_->getPosition().cast<float>(),
-                                                                          grid_map_->getSize()[0], grid_map_->getSize()[1],
-                                                                          origin.topRows<2>(), rows, cols,
-                                                                          grid_map_->getResolution());
     grid_map::Index start_index;
-    start_index.x() = indices.x0;
-    start_index.y() = indices.y0;
+    start_index.x() = std::round(index.x() - rows/2.0);
+    start_index.y() = std::round(index.y() - cols/2.0);
 
-    grid_map::Size size = grid_map_->getSize();
+    ROS_INFO_STREAM("Start index: " << start_index.x() << ", " << start_index.y());
+
     // Return nullptr if no overlap at all
+    grid_map::Size size = grid_map_->getSize();
     if (start_index.x() + rows <= 0 || start_index.y() + cols <= 0 || start_index.x() >= size.x() || start_index.y() >= size.y())
       return nullptr;
 
