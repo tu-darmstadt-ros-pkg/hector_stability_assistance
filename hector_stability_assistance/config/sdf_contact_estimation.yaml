@@ -1,0 +1,3 @@
+max_iterations: 5
+iteration_max_contact_distance: 0.025
+final_max_contact_distance: 0.10

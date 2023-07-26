@@ -7,7 +7,7 @@
 
     <!-- sdf contact estimation lib parameters -->
     <param name="pose_predictor" value="sdf_contact_estimation::SDFContactEstimation"/>
-    <rosparam file="$(find sdf_contact_estimation)/config/optimization.yaml" command="load" ns="sdf_pose_predictor"/>
+    <rosparam file="$(find hector_stability_assistance)/config/sdf_contact_estimation.yaml" command="load" ns="sdf_pose_predictor"/>
     <rosparam file="$(find sdf_contact_estimation)/config/asterix_shape_config.yaml" command="load" ns="sdf_pose_predictor/shape_model" />
     <rosparam param="debug" ns="sdf_pose_predictor">true</rosparam>
 
