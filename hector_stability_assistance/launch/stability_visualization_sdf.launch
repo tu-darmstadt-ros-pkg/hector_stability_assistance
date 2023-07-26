@@ -3,7 +3,8 @@
 <launch>
   
   <node pkg="hector_stability_assistance" type="stability_visualization_node" name="stability_visualization" output="screen" respawn="true">
-    <param name="update_frequency" value="20"/>
+    <param name="update_frequency" value="10"/>
+    <param name="predict_pose" value="false"/>
 
     <!-- sdf contact estimation lib parameters -->
     <param name="pose_predictor" value="sdf_contact_estimation::SDFContactEstimation"/>

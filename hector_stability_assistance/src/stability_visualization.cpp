@@ -16,13 +16,13 @@
 namespace hector_stability_assistance {
 
 StabilityVisualization::StabilityVisualization(const ros::NodeHandle &nh, const ros::NodeHandle &pnh)
-: nh_(nh), pnh_(pnh), tf_listener_(tf_buffer_), update_frequency_(10.0) {}
+: nh_(nh), pnh_(pnh), tf_listener_(tf_buffer_), update_frequency_(10.0), predict_pose_(false) {}
 
 bool StabilityVisualization::init() {
   // Parameters
   update_frequency_ = pnh_.param("update_frequency", 10.0);
   elevation_layer_name_ = pnh_.param("elevation_layer_name", std::string("elevation"));
-
+  predict_pose_ = pnh_.param("predict_pose", false);
 
   // Load urdf model
   if (!urdf_model_.initParam("robot_description")) {
@@ -130,9 +130,13 @@ void StabilityVisualization::update() {
 
   hector_pose_prediction_interface::SupportPolygon<double> support_polygon;
   hector_pose_prediction_interface::ContactInformation<double> contact_information;
-  if (!pose_predictor_->estimateContactInformation(robot_pose, support_polygon, contact_information))
-//  if (!pose_predictor_->predictPoseAndContactInformation(robot_pose, support_polygon, contact_information))
-  {
+  bool success;
+  if (!predict_pose_) {
+    success = pose_predictor_->estimateContactInformation(robot_pose, support_polygon, contact_information);
+  } else {
+    success = !std::isnan(pose_predictor_->predictPoseAndContactInformation(robot_pose, support_polygon, contact_information));
+  }
+  if (!success) {
     ROS_WARN("Support polygon estimation failed.");
     return;
   }
