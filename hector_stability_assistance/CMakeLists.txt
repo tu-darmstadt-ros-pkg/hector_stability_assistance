@@ -1,19 +1,21 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(hector_stability_assistance)
 
-add_compile_options(-std=c++11)
+add_compile_options(-std=c++14)
 
 find_package(catkin REQUIRED COMPONENTS
-  hector_heightmap_pose_prediction
+#  hector_heightmap_pose_prediction
   hector_pose_prediction_interface
-  hector_rviz_overlay
+#  hector_rviz_overlay
   visualization_msgs
-  grid_map_msgs
+#  grid_map_msgs
   std_msgs
   sensor_msgs
   eigen_conversions
-  grid_map_ros
-  hector_world_heightmap_ros
+#  grid_map_ros
+#  hector_world_heightmap_ros
+  voxblox_ros
+  sdf_contact_estimation
 )
 
 ################################################
@@ -42,7 +44,19 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES hector_stability_assistance
-  CATKIN_DEPENDS hector_heightmap_pose_prediction hector_pose_prediction_interface hector_rviz_overlay visualization_msgs grid_map_msgs std_msgs sensor_msgs eigen_conversions grid_map_ros hector_world_heightmap_ros
+  CATKIN_DEPENDS
+#    hector_heightmap_pose_prediction
+    hector_pose_prediction_interface
+#    hector_rviz_overlay
+    visualization_msgs
+#    grid_map_msgs
+    std_msgs
+    sensor_msgs
+    eigen_conversions
+#    grid_map_ros
+#    hector_world_heightmap_ros
+    voxblox_ros
+    sdf_contact_estimation
 #  DEPENDS system_lib
 )
 
@@ -58,13 +72,13 @@ include_directories(
 ## Declare a C++ library
 add_library(${PROJECT_NAME}
   include/${PROJECT_NAME}/stability_visualization.h
-  include/${PROJECT_NAME}/local_grid_map.h
-  include/${PROJECT_NAME}/sub_map.h
+#  include/${PROJECT_NAME}/local_grid_map.h
+#  include/${PROJECT_NAME}/sub_map.h
   include/${PROJECT_NAME}/visualization.h
 
   src/stability_visualization.cpp
-  src/local_grid_map.cpp
-  src/sub_map.cpp
+#  src/local_grid_map.cpp
+#  src/sub_map.cpp
   src/visualization.cpp
 )
 add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})

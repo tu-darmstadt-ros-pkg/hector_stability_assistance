@@ -5,12 +5,14 @@
 #include <tf2_ros/transform_listener.h>
 #include <urdf/model.h>
 
-#include <grid_map_msgs/GridMap.h>
+//#include <grid_map_msgs/GridMap.h>
 #include <geometry_msgs/PointStamped.h>
 #include <geometry_msgs/TransformStamped.h>
 #include <std_msgs/Float64.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <sensor_msgs/JointState.h>
+#include <voxblox_ros/esdf_server.h>
+#include <sdf_contact_estimation/sdf_contact_estimation.h>
 
 #include <hector_pose_prediction_interface/pose_predictor.h>
 
@@ -22,7 +24,7 @@ public:
   bool init();
 private:
   void timerCallback(const ros::TimerEvent&);
-  void gridMapCallback(const grid_map_msgs::GridMapConstPtr& grid_map);
+//  void gridMapCallback(const grid_map_msgs::GridMapConstPtr& grid_map);
   void jointStateCallback(const sensor_msgs::JointStateConstPtr& joint_state_msg);
 
   void update();
@@ -46,12 +48,15 @@ private:
   ros::Publisher robot_heightmap_pub_;
   ros::Publisher submap_pub_;
 
-  grid_map_msgs::GridMapConstPtr latest_grid_map_;
+  std::shared_ptr<voxblox::EsdfServer> esdf_server_;
+  std::shared_ptr<sdf_contact_estimation::SdfModel> sdf_model_;
 
-  std::shared_ptr<hector_pose_prediction_interface::PosePredictor<float>> pose_predictor_;
+//  grid_map_msgs::GridMapConstPtr latest_grid_map_;
+
+  hector_pose_prediction_interface::PosePredictor<double>::Ptr pose_predictor_;
   urdf::Model urdf_model_;
   std::set<std::string> missing_joint_states_;
-  std::unordered_map<std::string, float> joint_states_;
+  std::unordered_map<std::string, double> joint_states_;
 };
 
 template <typename T>

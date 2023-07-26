@@ -1,5 +1,7 @@
 #include <hector_stability_assistance/visualization.h>
 
+#include <visualization_msgs/MarkerArray.h>
+
 namespace hector_stability_assistance {
 namespace visualization {
 
