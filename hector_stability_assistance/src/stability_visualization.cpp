@@ -143,12 +143,13 @@ void StabilityVisualization::update() {
   }
   // Publish results
   // Stability
-//  Eigen::Vector3d com = robot_pose.asTransform() * pose_predictor_->robotModel()->centerOfMass();
-//  hector_stability_metrics::non_differentiable::computeForceAngleStabilityMeasure<double>(support_polygon.contact_hull_points, support_polygon.edge_stabilities, com, Eigen::Vector3d::Zero());
-//  auto min_it = std::min_element(support_polygon.edge_stabilities.begin(), support_polygon.edge_stabilities.end());
-//  std_msgs::Float64 stability_msg;
-//  stability_msg.data = *min_it;
-//  stability_pub_.publish(stability_msg);
+  Eigen::Vector3d com = robot_pose.asTransform() * pose_predictor_->robotModel()->centerOfMass();
+  Eigen::Vector3d gravity(0.0, 0.0, -9.81);
+  hector_stability_metrics::non_differentiable::computeForceAngleStabilityMeasure<double>(support_polygon.contact_hull_points, support_polygon.edge_stabilities, com, gravity);
+  auto min_it = std::min_element(support_polygon.edge_stabilities.begin(), support_polygon.edge_stabilities.end());
+  std_msgs::Float64 stability_msg;
+  stability_msg.data = *min_it;
+  stability_pub_.publish(stability_msg);
 
   // Traction
   // TODO
