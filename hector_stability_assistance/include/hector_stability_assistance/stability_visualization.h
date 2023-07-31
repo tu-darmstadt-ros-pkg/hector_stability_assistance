@@ -42,7 +42,8 @@ private:
   ros::Timer timer_;
   ros::Subscriber grid_map_sub_;
   ros::Subscriber joint_state_sub_;
-  ros::Publisher stability_pub_;
+  ros::Publisher stability_margin_pub_;
+  ros::Publisher stability_margins_pub_;
   ros::Publisher traction_pub_;
   ros::Publisher support_polygon_pub_;
   ros::Publisher com_pub_;

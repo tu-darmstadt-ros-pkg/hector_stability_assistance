@@ -7,7 +7,8 @@
 #include <hector_stability_metrics/metrics/force_angle_stability_measure.h>
 //#include <hector_world_heightmap_ros/message_conversions/map.h>
 #include <eigen_conversions/eigen_msg.h>
-#include <sensor_msgs/PointCloud.h>
+//#include <sensor_msgs/PointCloud.h>
+#include <std_msgs/Float64MultiArray.h>
 
 //#include <hector_stability_assistance/local_grid_map.h>
 #include <hector_stability_assistance/visualization.h>
@@ -73,7 +74,8 @@ bool StabilityVisualization::init() {
   }
 
   // Subscriber and Publisher
-  stability_pub_ = pnh_.advertise<std_msgs::Float64>("stability", 1);
+  stability_margin_pub_ = pnh_.advertise<std_msgs::Float64>("stability_margin", 1);
+  stability_margins_pub_ = pnh_.advertise<std_msgs::Float64MultiArray>("stability_margins", 1);
   traction_pub_ = pnh_.advertise<std_msgs::Float64>("traction", 1);
   support_polygon_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("support_polygon", 1);
   com_pub_ = pnh_.advertise<geometry_msgs::PointStamped>("center_of_mass", 1);
@@ -93,7 +95,6 @@ void StabilityVisualization::timerCallback(const ros::TimerEvent&) {
 }
 
 void StabilityVisualization::update() {
-  ROS_INFO_STREAM("Updating stability");
   // Update robot state
   if (!missing_joint_states_.empty()) {
     ROS_WARN_STREAM_THROTTLE(1, "Can't update stability estimation: The following joint states are still missing: " << setToString(missing_joint_states_));
@@ -150,10 +151,15 @@ void StabilityVisualization::update() {
   Eigen::Vector3d com = robot_pose.asTransform() * pose_predictor_->robotModel()->centerOfMass();
   Eigen::Vector3d gravity(0.0, 0.0, -9.81);
   hector_stability_metrics::non_differentiable::computeForceAngleStabilityMeasure<double>(support_polygon.contact_hull_points, support_polygon.edge_stabilities, com, gravity);
+
+  std_msgs::Float64MultiArray stability_margins_msg;
+  stability_margins_msg.data = support_polygon.edge_stabilities;
+  stability_margins_pub_.publish(stability_margins_msg);
+
   auto min_it = std::min_element(support_polygon.edge_stabilities.begin(), support_polygon.edge_stabilities.end());
   std_msgs::Float64 stability_msg;
   stability_msg.data = *min_it;
-  stability_pub_.publish(stability_msg);
+  stability_margin_pub_.publish(stability_msg);
 
   // Traction
   // TODO
@@ -163,7 +169,6 @@ void StabilityVisualization::update() {
   visualization_msgs::MarkerArray support_polygon_marker_array;
   hector_pose_prediction_interface::visualization::addSupportPolygonWithContactInformationToMarkerArray(support_polygon_marker_array, support_polygon, contact_information, "world"); //TODO map name
   support_polygon_pub_.publish(support_polygon_marker_array);
-
 
   /*
    * DEBUG
