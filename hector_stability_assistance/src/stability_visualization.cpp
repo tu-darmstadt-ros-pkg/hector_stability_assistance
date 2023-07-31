@@ -118,7 +118,7 @@ void StabilityVisualization::update() {
                                              ros::Time(0), ros::Duration(1.0)); //TODO remove hardcoded frames
   }
   catch (const tf2::TransformException &ex) {
-    ROS_WARN("%s",ex.what());
+    ROS_WARN_THROTTLE(1, "%s",ex.what());
     return;
   }
 
@@ -137,15 +137,11 @@ void StabilityVisualization::update() {
   } else {
     success = !std::isnan(pose_predictor_->predictPoseAndContactInformation(robot_pose, support_polygon, contact_information));
   }
-  if (!success) {
-    ROS_WARN("Support polygon estimation failed.");
+  if (!success || support_polygon.contact_hull_points.empty()) {
+    ROS_WARN_STREAM("Failed to estimate support polygon.");
     return;
   }
 
-  if (support_polygon.contact_hull_points.empty()) {
-    ROS_WARN("No support polygon.");
-    return;
-  }
   // Publish results
   // Stability
   Eigen::Vector3d com = robot_pose.asTransform() * pose_predictor_->robotModel()->centerOfMass();
@@ -216,7 +212,5 @@ void StabilityVisualization::jointStateCallback(const sensor_msgs::JointStateCon
     joint_states_[joint_state_msg->name[i]] = joint_state_msg->position[i];
   }
 }
-
-
 
 }
