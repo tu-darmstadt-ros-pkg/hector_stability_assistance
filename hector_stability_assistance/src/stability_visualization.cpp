@@ -103,32 +103,14 @@ void StabilityVisualization::update() {
   pose_predictor_->robotModel()->updateJointPositions(joint_states_);
 
   // Center of mass
-  geometry_msgs::PointStamped point_msg;
-  if(urdf_model_.getRoot()) {
-    point_msg.header.frame_id = urdf_model_.getRoot()->name;
-  }
-  point_msg.header.stamp = ros::Time::now();
-  tf::pointEigenToMsg(pose_predictor_->robotModel()->centerOfMass(), point_msg.point);
-  com_pub_.publish(point_msg);
+  publishCOM();
 
   // Get robot position
-  geometry_msgs::TransformStamped transform_msg;
-  try{
-    transform_msg = tf_buffer_.lookupTransform("world", "base_link",
-                                             ros::Time(0), ros::Duration(1.0)); //TODO remove hardcoded frames
-  }
-  catch (const tf2::TransformException &ex) {
-    ROS_WARN_THROTTLE(1, "%s",ex.what());
+  Eigen::Isometry3d robot_pose_eigen;
+  if (!getRobotPose(robot_pose_eigen)) {
     return;
   }
-
-  // Estimate ground contact
-  Eigen::Matrix<double, 3, 1> robot_position;
-  Eigen::Quaternion<double> robot_orientation;
-  tf::vectorMsgToEigen(transform_msg.transform.translation, robot_position);
-  tf::quaternionMsgToEigen(transform_msg.transform.rotation, robot_orientation);
-  hector_math::Pose<double> robot_pose(robot_position, robot_orientation);
-
+  hector_math::Pose<double> robot_pose(robot_pose_eigen);
   hector_pose_prediction_interface::SupportPolygon<double> support_polygon;
   hector_pose_prediction_interface::ContactInformation<double> contact_information;
   bool success;
@@ -211,6 +193,31 @@ void StabilityVisualization::jointStateCallback(const sensor_msgs::JointStateCon
   for (unsigned int i = 0; i < joint_state_msg->name.size(); ++i) {
     joint_states_[joint_state_msg->name[i]] = joint_state_msg->position[i];
   }
+}
+void StabilityVisualization::publishCOM() const
+{
+  geometry_msgs::PointStamped point_msg;
+  if(urdf_model_.getRoot()) {
+    point_msg.header.frame_id = urdf_model_.getRoot()->name;
+  }
+  point_msg.header.stamp = ros::Time::now();
+  tf::pointEigenToMsg(pose_predictor_->robotModel()->centerOfMass(), point_msg.point);
+  com_pub_.publish(point_msg);
+}
+
+bool StabilityVisualization::getRobotPose(Eigen::Isometry3d& robot_pose) const
+{
+  geometry_msgs::TransformStamped transform_msg;
+  try{
+    transform_msg = tf_buffer_.lookupTransform("world", "base_link",
+                                               ros::Time(0), ros::Duration(1.0)); //TODO remove hardcoded frames
+  }
+  catch (const tf2::TransformException &ex) {
+    ROS_WARN_THROTTLE(1, "%s",ex.what());
+    return false;
+  }
+  tf::transformMsgToEigen(transform_msg.transform, robot_pose);
+  return true;
 }
 
 }

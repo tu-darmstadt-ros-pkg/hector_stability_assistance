@@ -29,6 +29,10 @@ private:
 
   void update();
 
+  bool getRobotPose(Eigen::Isometry3d& robot_pose) const;
+
+  void publishCOM() const;
+
   ros::NodeHandle nh_;
   ros::NodeHandle pnh_;
   tf2_ros::Buffer tf_buffer_;
