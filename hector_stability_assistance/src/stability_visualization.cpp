@@ -17,7 +17,10 @@
 namespace hector_stability_assistance {
 
 StabilityVisualization::StabilityVisualization(const ros::NodeHandle &nh, const ros::NodeHandle &pnh)
-: nh_(nh), pnh_(pnh), tf_listener_(tf_buffer_), update_frequency_(10.0), predict_pose_(false) {}
+: nh_(nh), pnh_(pnh), tf_listener_(tf_buffer_), update_frequency_(10.0), predict_pose_(false) {
+  latest_twist_.linear.x = latest_twist_.linear.y = latest_twist_.linear.z = 0;
+  latest_twist_.angular.x = latest_twist_.angular.y = latest_twist_.angular.z = 0;
+}
 
 bool StabilityVisualization::init() {
   // Parameters
@@ -80,7 +83,14 @@ bool StabilityVisualization::init() {
   support_polygon_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("support_polygon", 1);
   com_pub_ = pnh_.advertise<geometry_msgs::PointStamped>("center_of_mass", 1);
 
+  ros::NodeHandle prediction_nh(pnh_, "prediction");
+  predicted_stability_margin_pub_ = prediction_nh.advertise<std_msgs::Float64>("stability_margin", 1);
+  predicted_stability_margins_pub_ = prediction_nh.advertise<std_msgs::Float64MultiArray>("stability_margins", 1);
+  predicted_traction_pub_ = prediction_nh.advertise<std_msgs::Float64>("traction", 1);
+  predicted_support_polygon_pub_ = prediction_nh.advertise<visualization_msgs::MarkerArray>("support_polygon", 1);
+
   joint_state_sub_ = nh_.subscribe<sensor_msgs::JointState>("/joint_states", 1, &StabilityVisualization::jointStateCallback, this);
+  cmd_vel_sub_ = nh_.subscribe<geometry_msgs::Twist>("/cmd_vel", 1, &StabilityVisualization::cmdVelCallback, this);
 
   timer_ = nh_.createTimer(ros::Duration(1.0/update_frequency_), &StabilityVisualization::timerCallback, this, false);
   return true;
@@ -110,43 +120,49 @@ void StabilityVisualization::update() {
   if (!getRobotPose(robot_pose_eigen)) {
     return;
   }
-  hector_math::Pose<double> robot_pose(robot_pose_eigen);
+
+  // Evaluate current pose
   hector_pose_prediction_interface::SupportPolygon<double> support_polygon;
   hector_pose_prediction_interface::ContactInformation<double> contact_information;
-  bool success;
-  if (!predict_pose_) {
-    success = pose_predictor_->estimateContactInformation(robot_pose, support_polygon, contact_information);
-  } else {
-    success = !std::isnan(pose_predictor_->predictPoseAndContactInformation(robot_pose, support_polygon, contact_information));
-  }
-  if (!success || support_polygon.contact_hull_points.empty()) {
-    ROS_WARN_STREAM("Failed to estimate support polygon.");
+  if (!estimateRobotPose(robot_pose_eigen, support_polygon, contact_information, predict_pose_)) {
     return;
   }
 
   // Publish results
   // Stability
-  Eigen::Vector3d com = robot_pose.asTransform() * pose_predictor_->robotModel()->centerOfMass();
-  Eigen::Vector3d gravity(0.0, 0.0, -9.81);
-  hector_stability_metrics::non_differentiable::computeForceAngleStabilityMeasure<double>(support_polygon.contact_hull_points, support_polygon.edge_stabilities, com, gravity);
+  computeStabilityMargin(robot_pose_eigen, support_polygon);
+  publishEdgeStabilities(support_polygon, stability_margins_pub_);
+  publishMinStability(support_polygon, stability_margin_pub_);
 
-  std_msgs::Float64MultiArray stability_margins_msg;
-  stability_margins_msg.data = support_polygon.edge_stabilities;
-  stability_margins_pub_.publish(stability_margins_msg);
-
-  auto min_it = std::min_element(support_polygon.edge_stabilities.begin(), support_polygon.edge_stabilities.end());
-  std_msgs::Float64 stability_msg;
-  stability_msg.data = *min_it;
-  stability_margin_pub_.publish(stability_msg);
+  // Support polygon
+  publishSupportPolygon(support_polygon, contact_information, support_polygon_pub_);
 
   // Traction
   // TODO
 
+
+
+  // Predict future poses based on commanded velocity
+  Eigen::Isometry3d pose_delta = computeDiffDriveTransform(latest_twist_.linear.x, latest_twist_.angular.z, 0.5);
+  Eigen::Isometry3d predicted_pose = robot_pose_eigen * pose_delta;
+
+  // Evaluate future pose
+  hector_pose_prediction_interface::SupportPolygon<double> predicted_support_polygon;
+  hector_pose_prediction_interface::ContactInformation<double> predicted_contact_information;
+  if (!estimateRobotPose(predicted_pose, predicted_support_polygon, predicted_contact_information, true)) {
+    return;
+  }
+  // Stability
+  computeStabilityMargin(robot_pose_eigen, support_polygon);
+  publishEdgeStabilities(support_polygon, predicted_stability_margins_pub_);
+  publishMinStability(support_polygon, predicted_stability_margin_pub_);
+
   // Support polygon
-  visualization::deleteAllMarkers(support_polygon_pub_);
-  visualization_msgs::MarkerArray support_polygon_marker_array;
-  hector_pose_prediction_interface::visualization::addSupportPolygonWithContactInformationToMarkerArray(support_polygon_marker_array, support_polygon, contact_information, "world"); //TODO map name
-  support_polygon_pub_.publish(support_polygon_marker_array);
+  publishSupportPolygon(support_polygon, contact_information, predicted_support_polygon_pub_);
+
+  // Traction
+  // TODO
+
 
   /*
    * DEBUG
@@ -218,6 +234,71 @@ bool StabilityVisualization::getRobotPose(Eigen::Isometry3d& robot_pose) const
   }
   tf::transformMsgToEigen(transform_msg.transform, robot_pose);
   return true;
+}
+
+Eigen::Isometry3d StabilityVisualization::computeDiffDriveTransform(double linear_speed, double angular_speed, double delta_time) const
+{
+  double turning_radius;
+  double x;
+  double y;
+  double theta = angular_speed * delta_time;
+  return Eigen::Isometry3d::Identity();
+}
+
+void StabilityVisualization::cmdVelCallback(const geometry_msgs::TwistConstPtr& twist_msg)
+{
+  latest_twist_ = *twist_msg;
+}
+
+bool StabilityVisualization::estimateRobotPose(Eigen::Isometry3d& robot_pose,
+                                               hector_pose_prediction_interface::SupportPolygon<double>& support_polygon,
+                                               hector_pose_prediction_interface::ContactInformation<double>& contact_information,
+                                               bool predict_pose)
+{
+  hector_math::Pose<double> robot_pose_type(robot_pose);
+  bool success;
+  if (!predict_pose) {
+    success = pose_predictor_->estimateContactInformation(robot_pose_type, support_polygon, contact_information);
+  } else {
+    success = !std::isnan(pose_predictor_->predictPoseAndContactInformation(robot_pose_type, support_polygon, contact_information));
+  }
+  if (!success || support_polygon.contact_hull_points.empty()) {
+    ROS_WARN_STREAM("Failed to estimate support polygon.");
+    return false;
+  }
+  robot_pose = robot_pose_type.asTransform();
+  return true;
+}
+void StabilityVisualization::computeStabilityMargin(const Eigen::Isometry3d& robot_pose, hector_pose_prediction_interface::SupportPolygon<double>& support_polygon)
+{
+  Eigen::Vector3d com = robot_pose * pose_predictor_->robotModel()->centerOfMass();
+  Eigen::Vector3d gravity(0.0, 0.0, -9.81);
+  hector_stability_metrics::non_differentiable::computeForceAngleStabilityMeasure<double>(support_polygon.contact_hull_points, support_polygon.edge_stabilities, com, gravity);
+}
+void StabilityVisualization::publishSupportPolygon(const hector_pose_prediction_interface::SupportPolygon<double>& support_polygon,
+                                                   const hector_pose_prediction_interface::ContactInformation<double>& contact_information,
+                                                   ros::Publisher& publisher) const
+{
+  visualization::deleteAllMarkers(publisher);
+  visualization_msgs::MarkerArray support_polygon_marker_array;
+  hector_pose_prediction_interface::visualization::addSupportPolygonWithContactInformationToMarkerArray(
+      support_polygon_marker_array, support_polygon, contact_information, "world"); //TODO map name
+  publisher.publish(support_polygon_marker_array);
+}
+void StabilityVisualization::publishMinStability(const hector_pose_prediction_interface::SupportPolygon<double>& support_polygon,
+                                                 ros::Publisher& publisher) const
+{
+  auto min_it = std::min_element(support_polygon.edge_stabilities.begin(), support_polygon.edge_stabilities.end());
+  std_msgs::Float64 stability_msg;
+  stability_msg.data = *min_it;
+  publisher.publish(stability_msg);
+}
+void StabilityVisualization::publishEdgeStabilities(const hector_pose_prediction_interface::SupportPolygon<double>& support_polygon,
+                                                    ros::Publisher& publisher) const
+{
+  std_msgs::Float64MultiArray stability_margins_msg;
+  stability_margins_msg.data = support_polygon.edge_stabilities;
+  publisher.publish(stability_margins_msg);
 }
 
 }
