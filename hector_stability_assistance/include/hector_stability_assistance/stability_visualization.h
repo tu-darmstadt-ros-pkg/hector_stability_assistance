@@ -4,6 +4,8 @@
 #include <ros/ros.h>
 #include <tf2_ros/transform_listener.h>
 #include <urdf/model.h>
+#include <moveit/robot_model/robot_model.h>
+#include <moveit/robot_state/robot_state.h>
 
 //#include <grid_map_msgs/GridMap.h>
 #include <geometry_msgs/PointStamped.h>
@@ -31,6 +33,8 @@ private:
 
   void update();
 
+  bool initializeRobotModel();
+
   bool estimateRobotPose(Eigen::Isometry3d& robot_pose,
                          hector_pose_prediction_interface::SupportPolygon<double>& support_polygon,
                          hector_pose_prediction_interface::ContactInformation<double>& contact_information,
@@ -48,6 +52,10 @@ private:
   void publishSupportPolygon(const hector_pose_prediction_interface::SupportPolygon<double>& support_polygon,
                              const hector_pose_prediction_interface::ContactInformation<double>& contact_information,
                              ros::Publisher& publisher) const;
+
+  void publishRobotModel(const Eigen::Isometry3d& robot_pose,
+                         const std::unordered_map<std::string, double>& joint_state,
+                         ros::Publisher& publisher) const;
 
   ros::NodeHandle nh_;
   ros::NodeHandle pnh_;
@@ -75,6 +83,7 @@ private:
   ros::Publisher predicted_stability_margins_pub_;
   ros::Publisher predicted_traction_pub_;
   ros::Publisher predicted_support_polygon_pub_;
+  ros::Publisher predicted_robot_model_pub_;
 
   std::shared_ptr<voxblox::EsdfServer> esdf_server_;
   std::shared_ptr<sdf_contact_estimation::SdfModel> sdf_model_;
@@ -83,7 +92,10 @@ private:
 //  grid_map_msgs::GridMapConstPtr latest_grid_map_;
 
   hector_pose_prediction_interface::PosePredictor<double>::Ptr pose_predictor_;
-  urdf::Model urdf_model_;
+  std::shared_ptr<urdf::Model> urdf_;
+  moveit::core::RobotModelConstPtr robot_model_;
+  moveit::core::RobotStatePtr robot_state_;
+
   std::set<std::string> missing_joint_states_;
   std::unordered_map<std::string, double> joint_states_;
 };

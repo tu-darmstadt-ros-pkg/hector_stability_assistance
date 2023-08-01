@@ -12,6 +12,8 @@
 
 //#include <hector_stability_assistance/local_grid_map.h>
 #include <hector_stability_assistance/visualization.h>
+#include <hector_rviz_plugins_msgs/DisplayMultiRobotState.h>
+#include <moveit/robot_state/conversions.h>
 
 
 namespace hector_stability_assistance {
@@ -29,12 +31,11 @@ bool StabilityVisualization::init() {
   predict_pose_ = pnh_.param("predict_pose", false);
 
   // Load urdf model
-  if (!urdf_model_.initParam("robot_description")) {
-    ROS_ERROR("Failed to load robot_description");
+  if (!initializeRobotModel()) {
     return false;
   }
 
-  for (const auto &kv : urdf_model_.joints_)
+  for (const auto &kv : urdf_->joints_)
   {
     if (kv.second->type != urdf::Joint::FIXED && kv.second->type != urdf::Joint::UNKNOWN && !kv.second->mimic) {
       missing_joint_states_.insert( kv.first );
@@ -88,6 +89,7 @@ bool StabilityVisualization::init() {
   predicted_stability_margins_pub_ = prediction_nh.advertise<std_msgs::Float64MultiArray>("stability_margins", 1);
   predicted_traction_pub_ = prediction_nh.advertise<std_msgs::Float64>("traction", 1);
   predicted_support_polygon_pub_ = prediction_nh.advertise<visualization_msgs::MarkerArray>("support_polygon", 1);
+  predicted_robot_model_pub_ = prediction_nh.advertise<hector_rviz_plugins_msgs::DisplayMultiRobotState>("predicted_robot_state", 1);
 
   joint_state_sub_ = nh_.subscribe<sensor_msgs::JointState>("/joint_states", 1, &StabilityVisualization::jointStateCallback, this);
   cmd_vel_sub_ = nh_.subscribe<geometry_msgs::Twist>("/cmd_vel", 1, &StabilityVisualization::cmdVelCallback, this);
@@ -153,12 +155,14 @@ void StabilityVisualization::update() {
     return;
   }
   // Stability
-  computeStabilityMargin(robot_pose_eigen, support_polygon);
+  computeStabilityMargin(predicted_pose, support_polygon);
   publishEdgeStabilities(support_polygon, predicted_stability_margins_pub_);
   publishMinStability(support_polygon, predicted_stability_margin_pub_);
 
   // Support polygon
   publishSupportPolygon(support_polygon, contact_information, predicted_support_polygon_pub_);
+
+  publishRobotModel(predicted_pose, joint_states_, predicted_robot_model_pub_);
 
   // Traction
   // TODO
@@ -213,8 +217,8 @@ void StabilityVisualization::jointStateCallback(const sensor_msgs::JointStateCon
 void StabilityVisualization::publishCOM() const
 {
   geometry_msgs::PointStamped point_msg;
-  if(urdf_model_.getRoot()) {
-    point_msg.header.frame_id = urdf_model_.getRoot()->name;
+  if(urdf_->getRoot()) {
+    point_msg.header.frame_id = urdf_->getRoot()->name;
   }
   point_msg.header.stamp = ros::Time::now();
   tf::pointEigenToMsg(pose_predictor_->robotModel()->centerOfMass(), point_msg.point);
@@ -299,6 +303,40 @@ void StabilityVisualization::publishEdgeStabilities(const hector_pose_prediction
   std_msgs::Float64MultiArray stability_margins_msg;
   stability_margins_msg.data = support_polygon.edge_stabilities;
   publisher.publish(stability_margins_msg);
+}
+void StabilityVisualization::publishRobotModel(const Eigen::Isometry3d& robot_pose,
+                                               const std::unordered_map<std::string, double>& joint_state,
+                                               ros::Publisher& publisher) const
+{
+  hector_rviz_plugins_msgs::MultiRobotStateEntry entry;
+  entry.id = "robot_model";
+  tf::poseEigenToMsg(robot_pose, entry.pose.pose);
+  robot_state_->setVariablePositions(std::map<std::string, double>(joint_state.begin(), joint_state.end()));
+  moveit::core::robotStateToRobotStateMsg(*robot_state_, entry.robot_state.state, false);
+  hector_rviz_plugins_msgs::DisplayMultiRobotState display_msg;
+  display_msg.header.frame_id = "world";
+  display_msg.robots.push_back(entry);
+  predicted_robot_model_pub_.publish(display_msg);
+}
+bool StabilityVisualization::initializeRobotModel()
+{
+  if (!robot_model_) {
+    urdf_ = std::make_shared<urdf::Model>();
+    if (!urdf_->initParam("/robot_description")) {
+      return false;
+    }
+    auto srdf = std::make_shared<srdf::Model>();
+
+    try {
+      robot_model_ = std::make_shared<moveit::core::RobotModel>(urdf_, srdf);
+      robot_state_ = std::make_shared<moveit::core::RobotState>(robot_model_);
+    } catch (std::exception& e) {
+      ROS_ERROR_STREAM( "Failed to initialize robot model: " << e.what());
+      return false;
+    }
+    robot_state_->setToDefaultValues();
+  }
+  return true;
 }
 
 }

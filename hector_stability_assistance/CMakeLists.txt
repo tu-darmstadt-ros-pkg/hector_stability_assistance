@@ -4,6 +4,8 @@ project(hector_stability_assistance)
 add_compile_options(-std=c++14)
 
 find_package(catkin REQUIRED COMPONENTS
+  urdf
+  tf2_ros
 #  hector_heightmap_pose_prediction
   hector_pose_prediction_interface
 #  hector_rviz_overlay
@@ -11,11 +13,14 @@ find_package(catkin REQUIRED COMPONENTS
 #  grid_map_msgs
   std_msgs
   sensor_msgs
+  geometry_msgs
+  hector_rviz_plugins_msgs
   eigen_conversions
 #  grid_map_ros
 #  hector_world_heightmap_ros
   voxblox_ros
   sdf_contact_estimation
+  moveit_core
 )
 
 ################################################
@@ -45,6 +50,8 @@ catkin_package(
   INCLUDE_DIRS include
   LIBRARIES hector_stability_assistance
   CATKIN_DEPENDS
+    tf2_ros
+    urdf
 #    hector_heightmap_pose_prediction
     hector_pose_prediction_interface
 #    hector_rviz_overlay
@@ -52,11 +59,14 @@ catkin_package(
 #    grid_map_msgs
     std_msgs
     sensor_msgs
+    geometry_msgs
+    hector_rviz_plugins_msgs
     eigen_conversions
 #    grid_map_ros
 #    hector_world_heightmap_ros
     voxblox_ros
     sdf_contact_estimation
+    moveit_core
 #  DEPENDS system_lib
 )
 

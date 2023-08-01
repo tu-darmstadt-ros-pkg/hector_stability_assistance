@@ -12,6 +12,8 @@
   <author email="oehler@sim.tu-darmstadt.de">Martin Oehler</author>
 
   <buildtool_depend>catkin</buildtool_depend>
+  <depend>urdf</depend>
+  <depend>tf2_ros</depend>
 <!--  <depend>hector_heightmap_pose_prediction</depend>-->
   <depend>hector_pose_prediction_interface</depend>
 <!--  <depend>hector_world_heightmap_ros</depend>-->
@@ -20,10 +22,13 @@
 <!--  <depend>grid_map_msgs</depend>-->
   <depend>std_msgs</depend>
   <depend>sensor_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>hector_rviz_plugins_msgs</depend>
   <depend>eigen_conversions</depend>
 <!--  <depend>grid_map_ros</depend>-->
   <depend>voxblox_ros</depend>
   <depend>sdf_contact_estimation</depend>
+  <depend>moveit_core</depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
