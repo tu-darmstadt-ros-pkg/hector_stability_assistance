@@ -371,5 +371,11 @@ bool StabilityVisualization::initializeRobotModel()
   }
   return true;
 }
+void StabilityVisualization::deleteRobotModels(ros::Publisher& publisher) const
+{
+  hector_rviz_plugins_msgs::DisplayMultiRobotState display_msg;
+  display_msg.header.frame_id = "world";
+  predicted_robot_model_pub_.publish(display_msg);
+}
 
 }

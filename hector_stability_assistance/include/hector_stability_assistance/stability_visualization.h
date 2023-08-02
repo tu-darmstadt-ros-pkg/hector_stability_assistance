@@ -57,6 +57,7 @@ private:
                          const std::unordered_map<std::string, double>& joint_state,
                          ros::Publisher& publisher,
                          Eigen::Vector4f color=Eigen::Vector4f(std::nan(""), std::nan(""), std::nan(""), std::nan(""))) const;
+  void deleteRobotModels(ros::Publisher& publisher) const;
 
   ros::NodeHandle nh_;
   ros::NodeHandle pnh_;
