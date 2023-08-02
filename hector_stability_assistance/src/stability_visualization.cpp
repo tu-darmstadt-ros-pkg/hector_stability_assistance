@@ -29,6 +29,7 @@ bool StabilityVisualization::init() {
   update_frequency_ = pnh_.param("update_frequency", 10.0);
   elevation_layer_name_ = pnh_.param("elevation_layer_name", std::string("elevation"));
   predict_pose_ = pnh_.param("predict_pose", false);
+  prediction_time_delta_ = pnh_.param("prediction_time_delta", 0.5);
 
   // Load urdf model
   if (!initializeRobotModel()) {
@@ -145,10 +146,9 @@ void StabilityVisualization::update() {
 
 
   // Predict future poses based on commanded velocity
-  double time_delta = 0.5;
-  Eigen::Isometry3d pose_delta = computeDiffDriveTransform(latest_twist_.linear.x, latest_twist_.angular.z, time_delta);
-  double distance_travelled = latest_twist_.linear.x * time_delta;
-  double theta = latest_twist_.angular.z * time_delta;
+  Eigen::Isometry3d pose_delta = computeDiffDriveTransform(latest_twist_.linear.x, latest_twist_.angular.z, prediction_time_delta_);
+  double distance_travelled = latest_twist_.linear.x * prediction_time_delta_;
+  double theta = latest_twist_.angular.z * prediction_time_delta_;
   Eigen::Isometry3d predicted_pose = robot_pose_eigen * pose_delta;
 
   // Evaluate future pose

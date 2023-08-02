@@ -66,6 +66,7 @@ private:
   double update_frequency_;
   std::string elevation_layer_name_;
   bool predict_pose_;
+  double prediction_time_delta_;
 
   ros::Timer timer_;
   ros::Subscriber grid_map_sub_;
