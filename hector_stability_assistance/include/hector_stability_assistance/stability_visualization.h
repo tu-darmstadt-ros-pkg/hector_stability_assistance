@@ -55,7 +55,8 @@ private:
 
   void publishRobotModel(const Eigen::Isometry3d& robot_pose,
                          const std::unordered_map<std::string, double>& joint_state,
-                         ros::Publisher& publisher) const;
+                         ros::Publisher& publisher,
+                         Eigen::Vector4f color=Eigen::Vector4f(std::nan(""), std::nan(""), std::nan(""), std::nan(""))) const;
 
   ros::NodeHandle nh_;
   ros::NodeHandle pnh_;

@@ -166,7 +166,7 @@ void StabilityVisualization::update() {
   // Support polygon
   publishSupportPolygon(predicted_support_polygon, predicted_contact_information, predicted_support_polygon_pub_);
 
-  publishRobotModel(predicted_pose, joint_states_, predicted_robot_model_pub_);
+  publishRobotModel(predicted_pose, joint_states_, predicted_robot_model_pub_, Eigen::Vector4f(0.5f, 0.8f, 0.2f, 1.0f));
 
   // Traction
   // TODO
@@ -322,13 +322,30 @@ void StabilityVisualization::publishEdgeStabilities(const hector_pose_prediction
 }
 void StabilityVisualization::publishRobotModel(const Eigen::Isometry3d& robot_pose,
                                                const std::unordered_map<std::string, double>& joint_state,
-                                               ros::Publisher& publisher) const
+                                               ros::Publisher& publisher, Eigen::Vector4f color) const
 {
   hector_rviz_plugins_msgs::MultiRobotStateEntry entry;
   entry.id = "robot_model";
   tf::poseEigenToMsg(robot_pose, entry.pose.pose);
   robot_state_->setVariablePositions(std::map<std::string, double>(joint_state.begin(), joint_state.end()));
   moveit::core::robotStateToRobotStateMsg(*robot_state_, entry.robot_state.state, false);
+
+  // Add color
+  if (!color.array().isNaN().any()) {
+    std_msgs::ColorRGBA color_msg;
+    color_msg.r = color(0);
+    color_msg.g = color(1);
+    color_msg.b = color(2);
+    color_msg.a = color(3);
+    for (const auto& link: robot_model_->getLinkModelNames()) {
+      moveit_msgs::ObjectColor object_color;
+      object_color.color = color_msg;
+      object_color.id = link;
+      entry.robot_state.highlight_links.push_back(object_color);
+    }
+  }
+
+
   hector_rviz_plugins_msgs::DisplayMultiRobotState display_msg;
   display_msg.header.frame_id = "world";
   display_msg.robots.push_back(entry);
