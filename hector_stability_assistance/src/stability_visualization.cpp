@@ -147,8 +147,8 @@ void StabilityVisualization::update() {
 
   // Predict future poses based on commanded velocity
   Eigen::Isometry3d pose_delta = computeDiffDriveTransform(latest_twist_.linear.x, latest_twist_.angular.z, prediction_time_delta_);
-  double distance_travelled = latest_twist_.linear.x * prediction_time_delta_;
-  double theta = latest_twist_.angular.z * prediction_time_delta_;
+  double distance_travelled = std::abs(latest_twist_.linear.x) * prediction_time_delta_;
+  double theta = std::abs(latest_twist_.angular.z) * prediction_time_delta_;
   Eigen::Isometry3d predicted_pose = robot_pose_eigen * pose_delta;
 
   // Evaluate future pose
