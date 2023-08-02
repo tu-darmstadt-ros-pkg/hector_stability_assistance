@@ -42,7 +42,7 @@ private:
   void computeStabilityMargin(const Eigen::Isometry3d& robot_pose, hector_pose_prediction_interface::SupportPolygon<double>& support_polygon);
 
   bool getRobotPose(Eigen::Isometry3d& robot_pose) const;
-  Eigen::Isometry3d computeDiffDriveTransform(double linear_speed, double angular_speed, double delta_time) const;
+  Eigen::Isometry3d computeDiffDriveTransform(double linear_speed, double angular_speed, double time_delta) const;
 
   void publishCOM() const;
   void publishEdgeStabilities(const hector_pose_prediction_interface::SupportPolygon<double>& support_polygon,

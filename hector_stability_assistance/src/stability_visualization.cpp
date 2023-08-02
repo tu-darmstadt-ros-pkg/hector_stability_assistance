@@ -145,22 +145,26 @@ void StabilityVisualization::update() {
 
 
   // Predict future poses based on commanded velocity
-  Eigen::Isometry3d pose_delta = computeDiffDriveTransform(latest_twist_.linear.x, latest_twist_.angular.z, 0.5);
+  double time_delta = 0.5;
+  Eigen::Isometry3d pose_delta = computeDiffDriveTransform(latest_twist_.linear.x, latest_twist_.angular.z, time_delta);
+  double distance_travelled = latest_twist_.linear.x * time_delta;
+  double theta = latest_twist_.angular.z * time_delta;
   Eigen::Isometry3d predicted_pose = robot_pose_eigen * pose_delta;
 
   // Evaluate future pose
   hector_pose_prediction_interface::SupportPolygon<double> predicted_support_polygon;
   hector_pose_prediction_interface::ContactInformation<double> predicted_contact_information;
-  if (!estimateRobotPose(predicted_pose, predicted_support_polygon, predicted_contact_information, true)) {
+  bool predict_pose = distance_travelled > 0.1 || theta > 0.15;
+  if (!estimateRobotPose(predicted_pose, predicted_support_polygon, predicted_contact_information, predict_pose)) {
     return;
   }
   // Stability
-  computeStabilityMargin(predicted_pose, support_polygon);
-  publishEdgeStabilities(support_polygon, predicted_stability_margins_pub_);
-  publishMinStability(support_polygon, predicted_stability_margin_pub_);
+  computeStabilityMargin(predicted_pose, predicted_support_polygon);
+  publishEdgeStabilities(predicted_support_polygon, predicted_stability_margins_pub_);
+  publishMinStability(predicted_support_polygon, predicted_stability_margin_pub_);
 
   // Support polygon
-  publishSupportPolygon(support_polygon, contact_information, predicted_support_polygon_pub_);
+  publishSupportPolygon(predicted_support_polygon, predicted_contact_information, predicted_support_polygon_pub_);
 
   publishRobotModel(predicted_pose, joint_states_, predicted_robot_model_pub_);
 
@@ -240,13 +244,25 @@ bool StabilityVisualization::getRobotPose(Eigen::Isometry3d& robot_pose) const
   return true;
 }
 
-Eigen::Isometry3d StabilityVisualization::computeDiffDriveTransform(double linear_speed, double angular_speed, double delta_time) const
+Eigen::Isometry3d StabilityVisualization::computeDiffDriveTransform(double linear_speed, double angular_speed, double time_delta) const
 {
-  double turning_radius;
   double x;
   double y;
-  double theta = angular_speed * delta_time;
-  return Eigen::Isometry3d::Identity();
+  double theta = angular_speed * time_delta;
+  if (angular_speed < 1e-6) {
+    x = linear_speed * time_delta;
+    y = 0;
+  } else {
+    x = linear_speed / angular_speed * std::sin(theta);
+    y = linear_speed / angular_speed * (1 - std::cos(theta));
+  }
+
+  Eigen::Isometry3d transform(Eigen::AngleAxisd(theta, Eigen::Vector3d::UnitZ()));
+  transform.translation().x() = x;
+  transform.translation().y() = y;
+  transform.translation().z() = 0;
+
+  return transform;
 }
 
 void StabilityVisualization::cmdVelCallback(const geometry_msgs::TwistConstPtr& twist_msg)
