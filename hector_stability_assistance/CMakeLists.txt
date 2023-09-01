@@ -85,11 +85,14 @@ add_library(${PROJECT_NAME}
 #  include/${PROJECT_NAME}/local_grid_map.h
 #  include/${PROJECT_NAME}/sub_map.h
   include/${PROJECT_NAME}/visualization.h
+  include/${PROJECT_NAME}/speed_controller.h
+
 
   src/stability_visualization.cpp
 #  src/local_grid_map.cpp
 #  src/sub_map.cpp
   src/visualization.cpp
+  src/speed_controller.cpp
 )
 add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
@@ -97,6 +100,10 @@ target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
 add_executable(stability_visualization_node src/stability_visualization_node.cpp)
 add_dependencies(stability_visualization_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(stability_visualization_node ${PROJECT_NAME})
+
+add_executable(speed_controller_node src/speed_controller_node.cpp)
+add_dependencies(speed_controller_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(speed_controller_node ${PROJECT_NAME})
 
 #############
 ## Install ##
