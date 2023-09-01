@@ -19,7 +19,7 @@
 namespace hector_stability_assistance {
 
 StabilityVisualization::StabilityVisualization(const ros::NodeHandle &nh, const ros::NodeHandle &pnh)
-: nh_(nh), pnh_(pnh), tf_listener_(tf_buffer_), update_frequency_(10.0), predict_pose_(false) {
+: nh_(nh), pnh_(pnh), tf_listener_(tf_buffer_), update_frequency_(10.0), prediction_time_delta_(0.5), predict_pose_(false) {
   latest_twist_.linear.x = latest_twist_.linear.y = latest_twist_.linear.z = 0;
   latest_twist_.angular.x = latest_twist_.angular.y = latest_twist_.angular.z = 0;
 }
@@ -134,11 +134,11 @@ void StabilityVisualization::update() {
   // Publish results
   // Stability
   computeStabilityMargin(robot_pose_eigen, support_polygon);
-  publishEdgeStabilities(support_polygon, stability_margins_pub_);
-  publishMinStability(support_polygon, stability_margin_pub_);
+  visualization::publishEdgeStabilities(support_polygon, stability_margins_pub_);
+  visualization::publishMinStability(support_polygon, stability_margin_pub_);
 
   // Support polygon
-  publishSupportPolygon(support_polygon, contact_information, support_polygon_pub_);
+  visualization::publishSupportPolygon(support_polygon, contact_information, support_polygon_pub_);
 
   // Traction
   // TODO
@@ -160,11 +160,11 @@ void StabilityVisualization::update() {
   }
   // Stability
   computeStabilityMargin(predicted_pose, predicted_support_polygon);
-  publishEdgeStabilities(predicted_support_polygon, predicted_stability_margins_pub_);
-  publishMinStability(predicted_support_polygon, predicted_stability_margin_pub_);
+  visualization::publishEdgeStabilities(predicted_support_polygon, predicted_stability_margins_pub_);
+  visualization::publishMinStability(predicted_support_polygon, predicted_stability_margin_pub_);
 
   // Support polygon
-  publishSupportPolygon(predicted_support_polygon, predicted_contact_information, predicted_support_polygon_pub_);
+  visualization::publishSupportPolygon(predicted_support_polygon, predicted_contact_information, predicted_support_polygon_pub_);
 
   publishRobotModel(predicted_pose, joint_states_, predicted_robot_model_pub_, Eigen::Vector4f(0.5f, 0.8f, 0.2f, 1.0f));
 
@@ -295,31 +295,10 @@ void StabilityVisualization::computeStabilityMargin(const Eigen::Isometry3d& rob
   Eigen::Vector3d gravity(0.0, 0.0, -9.81);
   hector_stability_metrics::non_differentiable::computeForceAngleStabilityMeasure<double>(support_polygon.contact_hull_points, support_polygon.edge_stabilities, com, gravity);
 }
-void StabilityVisualization::publishSupportPolygon(const hector_pose_prediction_interface::SupportPolygon<double>& support_polygon,
-                                                   const hector_pose_prediction_interface::ContactInformation<double>& contact_information,
-                                                   ros::Publisher& publisher) const
-{
-  visualization::deleteAllMarkers(publisher);
-  visualization_msgs::MarkerArray support_polygon_marker_array;
-  hector_pose_prediction_interface::visualization::addSupportPolygonWithContactInformationToMarkerArray(
-      support_polygon_marker_array, support_polygon, contact_information, "world"); //TODO map name
-  publisher.publish(support_polygon_marker_array);
-}
-void StabilityVisualization::publishMinStability(const hector_pose_prediction_interface::SupportPolygon<double>& support_polygon,
-                                                 ros::Publisher& publisher) const
-{
-  auto min_it = std::min_element(support_polygon.edge_stabilities.begin(), support_polygon.edge_stabilities.end());
-  std_msgs::Float64 stability_msg;
-  stability_msg.data = *min_it;
-  publisher.publish(stability_msg);
-}
-void StabilityVisualization::publishEdgeStabilities(const hector_pose_prediction_interface::SupportPolygon<double>& support_polygon,
-                                                    ros::Publisher& publisher) const
-{
-  std_msgs::Float64MultiArray stability_margins_msg;
-  stability_margins_msg.data = support_polygon.edge_stabilities;
-  publisher.publish(stability_margins_msg);
-}
+
+
+
+
 void StabilityVisualization::publishRobotModel(const Eigen::Isometry3d& robot_pose,
                                                const std::unordered_map<std::string, double>& joint_state,
                                                ros::Publisher& publisher, Eigen::Vector4f color) const
@@ -370,12 +349,6 @@ bool StabilityVisualization::initializeRobotModel()
     robot_state_->setToDefaultValues();
   }
   return true;
-}
-void StabilityVisualization::deleteRobotModels(ros::Publisher& publisher) const
-{
-  hector_rviz_plugins_msgs::DisplayMultiRobotState display_msg;
-  display_msg.header.frame_id = "world";
-  predicted_robot_model_pub_.publish(display_msg);
 }
 
 }

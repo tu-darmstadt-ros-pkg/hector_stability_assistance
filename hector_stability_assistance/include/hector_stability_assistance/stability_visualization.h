@@ -45,13 +45,7 @@ private:
   Eigen::Isometry3d computeDiffDriveTransform(double linear_speed, double angular_speed, double time_delta) const;
 
   void publishCOM() const;
-  void publishEdgeStabilities(const hector_pose_prediction_interface::SupportPolygon<double>& support_polygon,
-                              ros::Publisher& publisher) const;
-  void publishMinStability(const hector_pose_prediction_interface::SupportPolygon<double>& support_polygon,
-                           ros::Publisher& publisher) const;
-  void publishSupportPolygon(const hector_pose_prediction_interface::SupportPolygon<double>& support_polygon,
-                             const hector_pose_prediction_interface::ContactInformation<double>& contact_information,
-                             ros::Publisher& publisher) const;
+
 
   void publishRobotModel(const Eigen::Isometry3d& robot_pose,
                          const std::unordered_map<std::string, double>& joint_state,
