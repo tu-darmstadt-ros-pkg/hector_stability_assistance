@@ -8,7 +8,6 @@ namespace hector_stability_assistance {
 SpeedController::SpeedController(const ros::NodeHandle& nh, const ros::NodeHandle& pnh)
 : nh_(nh),
   pnh_(pnh),
-  tf_listener_(tf_buffer_),
   prediction_horizon_(2.0),
   sample_resolution_(0.05),
   critical_stability_threshold_(0.5),
@@ -26,17 +25,22 @@ bool SpeedController::init() {
     return false;
   }
 
+  if (!initPosePredictor()) {
+    return false;
+  }
+
+  std::vector<std::string> joint_names;
+  joint_names.reserve(urdf_->joints_.size());
   for (const auto &kv : urdf_->joints_)
   {
     if (kv.second->type != urdf::Joint::FIXED && kv.second->type != urdf::Joint::UNKNOWN && !kv.second->mimic) {
-      missing_joint_states_.insert( kv.first );
+      joint_names.push_back( kv.first );
       ROS_DEBUG_STREAM("Adding required joint: " << kv.first << " type: " << kv.second->type);
     }
   }
 
-  if (!initPosePredictor()) {
-    return false;
-  }
+  state_provider_ = std::make_shared<RobotStateProvider>(nh_, joint_names, world_frame_, base_frame_);
+
 
   // Publishers
   support_polygon_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("support_polygon", 10);
@@ -46,7 +50,6 @@ bool SpeedController::init() {
 
 
   // Subscribers
-  joint_state_sub_ = nh_.subscribe<sensor_msgs::JointState>("/joint_states", 10, &SpeedController::jointStateCallback, this);
   cmd_vel_sub_ = pnh_.subscribe<geometry_msgs::Twist>("cmd_vel_in", 10, &SpeedController::cmdVelCallback, this);
 
 
@@ -124,42 +127,12 @@ void SpeedController::cmdVelCallback(geometry_msgs::Twist twist_msg) {
   cmd_vel_pub_.publish(twist_msg);
 }
 
-void SpeedController::jointStateCallback(const sensor_msgs::JointStateConstPtr& joint_state_msg) {
-  // Mark seen joints
-  if (!missing_joint_states_.empty()) {
-    for (const auto & joint_name : joint_state_msg->name) {
-      auto it = missing_joint_states_.find(joint_name);
-      if (it != missing_joint_states_.end()) {
-        missing_joint_states_.erase(it);
-      }
-    }
-  }
-  // Update state
-  for (unsigned int i = 0; i < joint_state_msg->name.size(); ++i) {
-    joint_states_[joint_state_msg->name[i]] = joint_state_msg->position[i];
-  }
-}
-
 void SpeedController::computeSpeedCommand(double& linear, double& angular) {
   std::vector<RobotTerrainState> robot_states = predictTerrainInteraction(linear, angular);
   publishTerrainInteraction(robot_states);
   double speed_scaling = computeSpeedScaling(robot_states);
   linear *= speed_scaling;
   angular += speed_scaling;
-}
-
-bool SpeedController::getRobotPose(Eigen::Isometry3d& robot_pose) const {
-  geometry_msgs::TransformStamped transform_msg;
-  try{
-    transform_msg = tf_buffer_.lookupTransform(world_frame_, base_frame_,
-                                               ros::Time(0), ros::Duration(1.0));
-  }
-  catch (const tf2::TransformException &ex) {
-    ROS_WARN_THROTTLE(1, "%s",ex.what());
-    return false;
-  }
-  tf::transformMsgToEigen(transform_msg.transform, robot_pose);
-  return true;
 }
 
 std::vector<RobotTerrainState> SpeedController::predictTerrainInteraction(double linear, double angular) {

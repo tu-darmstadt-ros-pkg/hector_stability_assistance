@@ -86,13 +86,15 @@ add_library(${PROJECT_NAME}
 #  include/${PROJECT_NAME}/sub_map.h
   include/${PROJECT_NAME}/visualization.h
   include/${PROJECT_NAME}/speed_controller.h
-
+  include/${PROJECT_NAME}/robot_state_provider.h
 
   src/stability_visualization.cpp
 #  src/local_grid_map.cpp
 #  src/sub_map.cpp
   src/visualization.cpp
   src/speed_controller.cpp
+  src/robot_state_provider.cpp
+
 )
 add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})

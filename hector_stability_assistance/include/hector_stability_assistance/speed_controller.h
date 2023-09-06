@@ -10,6 +10,8 @@
 #include <urdf/model.h>
 #include <hector_pose_prediction_interface/pose_predictor.h>
 
+#include <hector_stability_assistance/robot_state_provider.h>
+
 namespace hector_stability_assistance {
 
 struct RobotTerrainState {
@@ -37,9 +39,7 @@ private:
   double computeSpeedScaling(const std::vector<RobotTerrainState>& robot_states);
 
   bool estimateRobotPose(RobotTerrainState& robot_terrain_state);
-  bool getRobotPose(Eigen::Isometry3d& robot_pose) const;
   void cmdVelCallback(geometry_msgs::Twist twist_msg);
-  void jointStateCallback(const sensor_msgs::JointStateConstPtr& joint_state_msg);
 
   ros::NodeHandle nh_;
   ros::NodeHandle pnh_;
@@ -60,14 +60,9 @@ private:
 
   std::shared_ptr<voxblox::EsdfServer> esdf_server_;
 
-  tf2_ros::Buffer tf_buffer_;
-  tf2_ros::TransformListener tf_listener_;
-
-  std::set<std::string> missing_joint_states_;
-  std::unordered_map<std::string, double> joint_states_;
+  std::shared_ptr<RobotStateProvider> state_provider_;
 
   ros::Subscriber cmd_vel_sub_;
-  ros::Subscriber joint_state_sub_;
 
   ros::Publisher cmd_vel_pub_;
   ros::Publisher robot_display_pub_;
