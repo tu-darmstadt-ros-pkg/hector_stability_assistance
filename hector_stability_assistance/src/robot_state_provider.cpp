@@ -18,7 +18,7 @@ RobotStateProvider::RobotStateProvider(const ros::NodeHandle &nh, const std::vec
 
 bool RobotStateProvider::getRobotPose(Eigen::Isometry3d &robot_pose) const {
   geometry_msgs::TransformStamped transform_msg;
-  try{
+  try {
     transform_msg = tf_buffer_.lookupTransform(world_frame_, base_frame_,
                                                ros::Time(0), ros::Duration(1.0));
   }

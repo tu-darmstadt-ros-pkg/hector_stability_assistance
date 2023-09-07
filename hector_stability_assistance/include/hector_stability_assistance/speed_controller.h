@@ -35,11 +35,17 @@ private:
 
   void computeSpeedCommand(double& linear, double& angular);
   std::vector<RobotTerrainState> predictTerrainInteraction(double linear, double angular);
-  void publishTerrainInteraction(const std::vector<RobotTerrainState>& robot_states);
   double computeSpeedScaling(const std::vector<RobotTerrainState>& robot_states);
 
-  bool estimateRobotPose(RobotTerrainState& robot_terrain_state);
+  bool estimateRobotPose(const Eigen::Isometry3d& robot_pose,
+                         const std::unordered_map<std::string, double>& joint_positions,
+                         RobotTerrainState& robot_terrain_state, bool predict_pose);
+  void computeStabilityMargin(RobotTerrainState& robot_terrain_state);
+
   void cmdVelCallback(geometry_msgs::Twist twist_msg);
+
+  void publishTerrainInteraction(const std::vector<RobotTerrainState>& robot_states);
+  void publishMultiRobotState(const std::vector<RobotTerrainState>& robot_states) const;
 
   ros::NodeHandle nh_;
   ros::NodeHandle pnh_;
