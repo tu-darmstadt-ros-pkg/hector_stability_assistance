@@ -3,11 +3,15 @@
 
 #include <ros/ros.h>
 #include <hector_pose_prediction_interface/types.h>
+#include <visualization_msgs/MarkerArray.h>
+
 
 namespace hector_stability_assistance {
 namespace visualization {
 
-void deleteAllMarkers(ros::Publisher &pub);
+void deleteAllMarkers(const ros::Publisher &pub);
+
+void fixIds(visualization_msgs::MarkerArray& array);
 
 void publishEdgeStabilities(const hector_pose_prediction_interface::SupportPolygon<double>& support_polygon,
                             ros::Publisher& publisher);

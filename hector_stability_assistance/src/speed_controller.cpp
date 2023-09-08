@@ -5,6 +5,8 @@
 #include <hector_rviz_plugins_msgs/DisplayMultiRobotState.h>
 #include <hector_stability_metrics/metrics/force_angle_stability_measure.h>
 #include <moveit/robot_state/conversions.h>
+#include <hector_pose_prediction_ros/visualization.h>
+#include "hector_stability_assistance/visualization.h"
 
 namespace hector_stability_assistance {
 
@@ -124,7 +126,7 @@ void SpeedController::cmdVelCallback(geometry_msgs::Twist twist_msg) {
   ROS_INFO_STREAM("Input speed [" << twist_msg.linear.x << ", " << twist_msg.angular.z << "]");
   computeSpeedCommand(twist_msg.linear.x, twist_msg.angular.z);
   ROS_INFO_STREAM("Output speed [" << twist_msg.linear.x << ", " << twist_msg.angular.z << "]");
-//  cmd_vel_pub_.publish(twist_msg);
+  cmd_vel_pub_.publish(twist_msg);
 }
 
 void SpeedController::computeSpeedCommand(double& linear, double& angular) {
@@ -175,6 +177,9 @@ std::vector<RobotTerrainState> SpeedController::predictTerrainInteraction(double
     }
     robot_states.push_back(std::move(robot_terrain_state));
   }
+//  for (unsigned int i = 0; i < robot_states.size(); ++i) {
+//    ROS_INFO_STREAM("State " << i << ": Stability: " << robot_states[i].minimum_stability);
+//  }
   return robot_states;
 }
 
@@ -184,13 +189,25 @@ double SpeedController::computeSpeedScaling(const std::vector<RobotTerrainState>
     return 0.0;
   }
 
-  double speed_scaling;
-  if (robot_states.front().minimum_stability < critical_stability_threshold_) {
-    speed_scaling = 0.0;
-  } else {
-    speed_scaling = 1.0;
+  bool warn = false;
+  bool critical = false;
+  for (const auto& state: robot_states) {
+    if (state.minimum_stability < warn_stability_threshold_) {
+      warn = true;
+    }
+    if (state.minimum_stability < critical_stability_threshold_) {
+      critical = true;
+      break;
+    }
   }
-  ROS_INFO_STREAM("Stability: " << robot_states.front().minimum_stability << ", threshold: " << critical_stability_threshold_ << ", speed scaling: " << speed_scaling);
+
+  double speed_scaling = 1.0;
+  if (critical) {
+    speed_scaling = 0.0;
+  } else if (warn) {
+    speed_scaling = 0.5;
+  }
+  ROS_INFO_STREAM("speed scaling: " << speed_scaling);
   // Determine speed based on predicted terrain interaction
   // Start simple:
   // if stability below critical value in critical area, send 0
@@ -234,6 +251,7 @@ void SpeedController::computeStabilityMargin(RobotTerrainState& robot_terrain_st
 
 void SpeedController::publishTerrainInteraction(const std::vector<RobotTerrainState>& robot_states) {
   publishMultiRobotState(robot_states);
+  publishSupportPolygon(robot_states);
 }
 
 void SpeedController::publishMultiRobotState(const std::vector<RobotTerrainState>& robot_states) const {
@@ -283,8 +301,18 @@ void SpeedController::publishMultiRobotState(const std::vector<RobotTerrainState
 
     display_msg.robots.push_back(entry);
   }
-
   robot_display_pub_.publish(display_msg);
+}
+
+void SpeedController::publishSupportPolygon(const std::vector<RobotTerrainState>& robot_states) const {
+  visualization::deleteAllMarkers(support_polygon_pub_);
+  visualization_msgs::MarkerArray support_polygon_marker_array;
+  for (const auto& state: robot_states) {
+    hector_pose_prediction_interface::visualization::addSupportPolygonWithContactInformationToMarkerArray(
+        support_polygon_marker_array, state.support_polygon, state.contact_information, world_frame_);
+  }
+  visualization::fixIds(support_polygon_marker_array);
+  support_polygon_pub_.publish(support_polygon_marker_array);
 }
 
 Eigen::Isometry3d SpeedController::computeDiffDriveTransform(double linear_speed, double angular_speed, double time_delta) const

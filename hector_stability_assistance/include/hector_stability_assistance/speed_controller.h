@@ -46,6 +46,7 @@ private:
 
   void publishTerrainInteraction(const std::vector<RobotTerrainState>& robot_states);
   void publishMultiRobotState(const std::vector<RobotTerrainState>& robot_states) const;
+  void publishSupportPolygon(const std::vector<RobotTerrainState>& robot_states) const;
 
   Eigen::Isometry3d computeDiffDriveTransform(double linear_speed, double angular_speed, double time_delta) const;
 

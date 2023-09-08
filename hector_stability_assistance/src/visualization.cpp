@@ -1,6 +1,5 @@
 #include <hector_stability_assistance/visualization.h>
 
-#include <visualization_msgs/MarkerArray.h>
 #include <std_msgs/Float64MultiArray.h>
 #include <std_msgs/Float64.h>
 #include <hector_pose_prediction_ros/visualization.h>
@@ -9,12 +8,18 @@
 namespace hector_stability_assistance {
 namespace visualization {
 
-void deleteAllMarkers(ros::Publisher &pub) {
+void deleteAllMarkers(const ros::Publisher &pub) {
   visualization_msgs::MarkerArray array;
   visualization_msgs::Marker marker;
   marker.action = visualization_msgs::Marker::DELETEALL;
   array.markers.push_back(marker);
   pub.publish(array);
+}
+
+void fixIds(visualization_msgs::MarkerArray& array) {
+  for (int32_t i = 0; i < array.markers.size(); ++i) {
+    array.markers[i].id = i;
+  }
 }
 
 void publishSupportPolygon(const hector_pose_prediction_interface::SupportPolygon<double>& support_polygon,
