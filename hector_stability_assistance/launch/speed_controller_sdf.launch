@@ -2,10 +2,10 @@
 
 <launch>
   <node pkg="hector_stability_assistance" type="speed_controller_node" name="stability_speed_controller" output="screen" respawn="true">
-    <param name="critical_stability_threshold" value="1.0"/>
-    <param name="warn_stability_threshold" value="1.5"/>
-    <param name="sample_resolution" value="0.05"/>
-    <param name="prediction_horizon" value="2.0"/>
+    <param name="critical_stability_threshold" value="0.5"/>
+    <param name="warn_stability_threshold" value="1.0"/>
+    <param name="sample_resolution" value="0.20"/>
+    <param name="prediction_horizon" value="3.0"/>
 
     <!-- sdf contact estimation lib parameters -->
     <param name="pose_predictor" value="sdf_contact_estimation::SDFContactEstimation"/>

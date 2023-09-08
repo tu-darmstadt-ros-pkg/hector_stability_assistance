@@ -1,6 +1,7 @@
 #include <hector_stability_assistance/speed_controller.h>
 #include <sdf_contact_estimation/sdf/sdf_model.h>
 #include <sdf_contact_estimation/sdf_contact_estimation.h>
+#include <sdf_contact_estimation/util/utils.h>
 #include <hector_rviz_plugins_msgs/DisplayMultiRobotState.h>
 #include <hector_stability_metrics/metrics/force_angle_stability_measure.h>
 #include <moveit/robot_state/conversions.h>
@@ -123,7 +124,7 @@ void SpeedController::cmdVelCallback(geometry_msgs::Twist twist_msg) {
   ROS_INFO_STREAM("Input speed [" << twist_msg.linear.x << ", " << twist_msg.angular.z << "]");
   computeSpeedCommand(twist_msg.linear.x, twist_msg.angular.z);
   ROS_INFO_STREAM("Output speed [" << twist_msg.linear.x << ", " << twist_msg.angular.z << "]");
-  cmd_vel_pub_.publish(twist_msg);
+//  cmd_vel_pub_.publish(twist_msg);
 }
 
 void SpeedController::computeSpeedCommand(double& linear, double& angular) {
@@ -135,32 +136,45 @@ void SpeedController::computeSpeedCommand(double& linear, double& angular) {
 }
 
 std::vector<RobotTerrainState> SpeedController::predictTerrainInteraction(double linear, double angular) {
-  // Predict robot-terrain interaction at sampled poses along the path
-  std::vector<RobotTerrainState> robot_states;
-
-  RobotTerrainState prediction;
-  Eigen::Isometry3d robot_pose;
-  if (!state_provider_->getRobotPose(robot_pose)) {
+  // Get current robot pose and joint state
+  Eigen::Isometry3d current_robot_pose;
+  if (!state_provider_->getRobotPose(current_robot_pose)) {
     return {};
   }
   if (!state_provider_->jointStateComplete()) {
     return {};
   }
-  if (estimateRobotPose(robot_pose, state_provider_->getJointState(), prediction, false)) {
-    robot_states.push_back(std::move(prediction));
-  }
+  const std::unordered_map<std::string, double>& joint_state = state_provider_->getJointState();
 
-//  // get current pose and estimate support polygon
-//  // TODO replace with multiplication
-//  double time_step = sample_resolution_ / linear;
-//  unsigned int steps = std::floor(prediction_horizon_ / time_step);
-//  robot_states.reserve(steps);
-//  // compute diff drive fk
-//  for (unsigned int i = 0; i < steps; ++i) {
-//    // compute input pose from last result
-//    // pose prediction
-//    // save to array
-//  }
+  // Estimate at current robot pose
+  RobotTerrainState current_terrain_state;
+  if (!estimateRobotPose(current_robot_pose, joint_state, current_terrain_state, false)) {
+    current_terrain_state.minimum_stability = -1;
+    return {std::move(current_terrain_state)};
+  }
+  std::vector<RobotTerrainState> robot_states;
+  robot_states.push_back(std::move(current_terrain_state));
+
+  // Predict along robot trajectory
+  double abs_linear = std::abs(linear);
+  double distance = prediction_horizon_ * abs_linear;
+  unsigned int steps = std::floor(distance / sample_resolution_);
+  robot_states.reserve(steps);
+  double time_step = sample_resolution_ / abs_linear;
+  Eigen::Isometry3d robot_delta_motion = computeDiffDriveTransform(linear, angular, time_step);
+  for (unsigned int i = 0; i < steps; ++i) {
+    // last result + fk
+    Eigen::Isometry3d predicted_pose = robot_states.back().robot_pose * robot_delta_motion;
+
+    // pose prediction
+    RobotTerrainState robot_terrain_state;
+    if (!estimateRobotPose(predicted_pose, joint_state, robot_terrain_state, true)) {
+      robot_terrain_state.minimum_stability = -1;
+      robot_states.push_back(std::move(robot_terrain_state));
+      break;
+    }
+    robot_states.push_back(std::move(robot_terrain_state));
+  }
   return robot_states;
 }
 
@@ -271,6 +285,27 @@ void SpeedController::publishMultiRobotState(const std::vector<RobotTerrainState
   }
 
   robot_display_pub_.publish(display_msg);
+}
+
+Eigen::Isometry3d SpeedController::computeDiffDriveTransform(double linear_speed, double angular_speed, double time_delta) const
+{
+  double x;
+  double y;
+  double theta = angular_speed * time_delta;
+  if (angular_speed < 1e-6) {
+    x = linear_speed * time_delta;
+    y = 0;
+  } else {
+    x = linear_speed / angular_speed * std::sin(theta);
+    y = linear_speed / angular_speed * (1 - std::cos(theta));
+  }
+
+  Eigen::Isometry3d transform(Eigen::AngleAxisd(theta, Eigen::Vector3d::UnitZ()));
+  transform.translation().x() = x;
+  transform.translation().y() = y;
+  transform.translation().z() = 0;
+
+  return transform;
 }
 
 }  // namespace hector_stability_assistance
