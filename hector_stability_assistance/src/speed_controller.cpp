@@ -286,6 +286,9 @@ void SpeedController::publishMultiRobotState(const std::vector<RobotTerrainState
 }
 
 void SpeedController::publishSupportPolygon(const std::vector<RobotTerrainState>& robot_states) const {
+  if (support_polygon_pub_.getNumSubscribers() == 0) {
+    return;
+  }
   visualization::deleteAllMarkers(support_polygon_pub_);
   visualization_msgs::MarkerArray support_polygon_marker_array;
   for (const auto& state: robot_states) {
