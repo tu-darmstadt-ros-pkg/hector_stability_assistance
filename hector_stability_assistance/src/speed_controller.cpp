@@ -125,8 +125,12 @@ bool SpeedController::initPosePredictor() {
 
 void SpeedController::cmdVelCallback(geometry_msgs::Twist twist_msg) {
   ROS_INFO_STREAM("Input speed [" << twist_msg.linear.x << ", " << twist_msg.angular.z << "]");
+  auto start = std::chrono::system_clock::now();
   computeSpeedCommand(twist_msg.linear.x, twist_msg.angular.z);
   ROS_INFO_STREAM("Output speed [" << twist_msg.linear.x << ", " << twist_msg.angular.z << "]");
+  auto end = std::chrono::system_clock::now();
+  auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+  ROS_INFO_STREAM("Cmd vel delay: " << elapsed.count() << " ms.");
   cmd_vel_pub_.publish(twist_msg);
 }
 
