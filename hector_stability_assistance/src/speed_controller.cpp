@@ -133,7 +133,7 @@ void SpeedController::cmdVelCallback(geometry_msgs::Twist twist_msg) {
 void SpeedController::computeSpeedCommand(double& linear, double& angular) {
   std::vector<RobotTerrainState> robot_states = predictTerrainInteraction(linear, angular);
   publishTerrainInteraction(robot_states);
-  double speed_scaling = computeSpeedScaling(robot_states);
+  double speed_scaling = computeSpeedScaling(linear, angular, robot_states);
   linear *= speed_scaling;
   angular *= speed_scaling;
 }
@@ -149,30 +149,33 @@ std::vector<RobotTerrainState> SpeedController::predictTerrainInteraction(double
   }
   const std::unordered_map<std::string, double>& joint_state = state_provider_->getJointState();
 
+  std::vector<RobotTerrainState> robot_states;
   // Estimate at current robot pose
   RobotTerrainState current_terrain_state;
+  current_terrain_state.time_delta = 0.0;
   if (!estimateRobotPose(current_robot_pose, joint_state, current_terrain_state, false)) {
     current_terrain_state.minimum_stability = -1;
     return {std::move(current_terrain_state)};
   }
-  std::vector<RobotTerrainState> robot_states;
   robot_states.push_back(std::move(current_terrain_state));
 
   // Predict along robot trajectory
   double abs_linear = std::abs(linear);
-  double distance = prediction_horizon_ * abs_linear;
-  unsigned int steps = std::floor(distance / sample_resolution_);
+  double prediction_distance = prediction_horizon_ * abs_linear;
+  unsigned int steps = std::floor(prediction_distance / sample_resolution_);
   robot_states.reserve(steps);
   double time_step = sample_resolution_ / abs_linear;
   Eigen::Isometry3d robot_delta_motion = computeDiffDriveTransform(linear, angular, time_step);
-  for (unsigned int i = 0; i < steps; ++i) {
+  for (unsigned int i = 1; i <= steps; ++i) {
     // last result + fk
     Eigen::Isometry3d predicted_pose = robot_states.back().robot_pose * robot_delta_motion;
 
     // pose prediction
     RobotTerrainState robot_terrain_state;
+    robot_terrain_state.time_delta = time_step * i;
     if (!estimateRobotPose(predicted_pose, joint_state, robot_terrain_state, true)) {
       robot_terrain_state.minimum_stability = -1;
+      ROS_WARN_STREAM("Failed to predict support polygon at t = " << robot_terrain_state.time_delta);
       robot_states.push_back(std::move(robot_terrain_state));
       break;
     }
@@ -184,35 +187,37 @@ std::vector<RobotTerrainState> SpeedController::predictTerrainInteraction(double
   return robot_states;
 }
 
-double SpeedController::computeSpeedScaling(const std::vector<RobotTerrainState>& robot_states) {
+double SpeedController::computeSpeedScaling(double linear, double angular,
+                                            const std::vector<RobotTerrainState>& robot_states) {
   if (robot_states.empty()) {
     ROS_INFO_STREAM("No robot state");
     return 0.0;
   }
 
-  bool warn = false;
+//  bool warn = false;
   bool critical = false;
+  double critical_time_delta = 0.0;
+  double stability_margin;
   for (const auto& state: robot_states) {
-    if (state.minimum_stability < warn_stability_threshold_) {
-      warn = true;
-    }
+//    if (state.minimum_stability < warn_stability_threshold_) {
+//      warn = true;
+//    }
     if (state.minimum_stability < critical_stability_threshold_) {
+      ROS_INFO_STREAM("Found critical state at t = " << state.time_delta);
       critical = true;
+      critical_time_delta = state.time_delta;
+      stability_margin = state.minimum_stability;
       break;
     }
   }
 
   double speed_scaling = 1.0;
   if (critical) {
-    speed_scaling = 0.0;
-  } else if (warn) {
-    speed_scaling = 0.5;
+    speed_scaling = critical_time_delta / prediction_horizon_;
+    speed_scaling = std::min(speed_scaling, 1.0);
   }
-  ROS_INFO_STREAM("speed scaling: " << speed_scaling);
-  // Determine speed based on predicted terrain interaction
-  // Start simple:
-  // if stability below critical value in critical area, send 0
-  // if stability below critical value beyond critical area, scale velocity based on distance to critical area
+
+  ROS_INFO_STREAM("speed scaling: " << speed_scaling << ", critical time delta: " << critical_time_delta);
   return speed_scaling;
 }
 
@@ -230,7 +235,7 @@ bool SpeedController::estimateRobotPose(const Eigen::Isometry3d& robot_pose,
     success = !std::isnan(robot_terrain_state.minimum_stability);
   }
   if (!success || robot_terrain_state.support_polygon.contact_hull_points.empty()) {
-    ROS_WARN_STREAM("Failed to estimate support polygon.");
+//    ROS_WARN_STREAM("Failed to estimate support polygon.");
     return false;
   }
   robot_terrain_state.robot_pose = robot_pose_type.asTransform();

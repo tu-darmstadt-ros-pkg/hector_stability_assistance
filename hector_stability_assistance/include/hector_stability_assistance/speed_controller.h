@@ -15,6 +15,7 @@
 namespace hector_stability_assistance {
 
 struct RobotTerrainState {
+  double time_delta;
   Eigen::Isometry3d robot_pose;
   std::unordered_map<std::string, double> joint_positions;
 
@@ -35,7 +36,7 @@ private:
 
   void computeSpeedCommand(double& linear, double& angular);
   std::vector<RobotTerrainState> predictTerrainInteraction(double linear, double angular);
-  double computeSpeedScaling(const std::vector<RobotTerrainState>& robot_states);
+  double computeSpeedScaling(double linear, double angular, const std::vector<RobotTerrainState>& robot_states);
 
   bool estimateRobotPose(const Eigen::Isometry3d& robot_pose,
                          const std::unordered_map<std::string, double>& joint_positions,
