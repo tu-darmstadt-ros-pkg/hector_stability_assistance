@@ -46,7 +46,9 @@ private:
 
   void publishTerrainInteraction(const std::vector<RobotTerrainState>& robot_states);
   void publishMultiRobotState(const std::vector<RobotTerrainState>& robot_states) const;
+  void publishPredictedPath(const std::vector<RobotTerrainState>& robot_states) const;
   void publishSupportPolygon(const std::vector<RobotTerrainState>& robot_states) const;
+  std_msgs::ColorRGBA stabilityToColorMsg(double stability) const;
 
   Eigen::Isometry3d computeDiffDriveTransform(double linear_speed, double angular_speed, double time_delta) const;
 
@@ -76,6 +78,7 @@ private:
   ros::Publisher cmd_vel_pub_;
   ros::Publisher robot_display_pub_;
   ros::Publisher support_polygon_pub_;
+  ros::Publisher predicted_path_pub_;
 };
 
 }  // namespace hector_stability_assistance

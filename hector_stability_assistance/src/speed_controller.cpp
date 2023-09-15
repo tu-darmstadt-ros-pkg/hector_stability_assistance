@@ -47,6 +47,7 @@ bool SpeedController::init() {
 
   // Publishers
   support_polygon_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("support_polygon", 10);
+  predicted_path_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("predicted_path", 10);
   robot_display_pub_ = pnh_.advertise<hector_rviz_plugins_msgs::DisplayMultiRobotState>("predicted_robot_states", 10);
   cmd_vel_pub_ = pnh_.advertise<geometry_msgs::Twist>("cmd_vel_out", 10);
 
@@ -252,25 +253,13 @@ void SpeedController::computeStabilityMargin(RobotTerrainState& robot_terrain_st
 void SpeedController::publishTerrainInteraction(const std::vector<RobotTerrainState>& robot_states) {
   publishMultiRobotState(robot_states);
   publishSupportPolygon(robot_states);
+  publishPredictedPath(robot_states);
 }
 
 void SpeedController::publishMultiRobotState(const std::vector<RobotTerrainState>& robot_states) const {
-  std_msgs::ColorRGBA color_good;
-  color_good.r = 0;
-  color_good.g = 1.0;
-  color_good.b = 0;
-  color_good.a = 1.0;
-  std_msgs::ColorRGBA color_warn;
-  color_warn.r = 1.0;
-  color_warn.g = 1.0;
-  color_warn.b = 0;
-  color_warn.a = 1.0;
-  std_msgs::ColorRGBA color_critical;
-  color_critical.r = 1.0;
-  color_critical.g = 0.0;
-  color_critical.b = 0;
-  color_critical.a = 1.0;
-
+  if (robot_display_pub_.getNumSubscribers() == 0) {
+    return;
+  }
   hector_rviz_plugins_msgs::DisplayMultiRobotState display_msg;
   display_msg.header.frame_id = world_frame_;
   display_msg.robots.reserve(robot_states.size());
@@ -284,17 +273,9 @@ void SpeedController::publishMultiRobotState(const std::vector<RobotTerrainState
     robot_state_->setVariablePositions(std::map<std::string, double>(state.joint_positions.begin(), state.joint_positions.end()));
     moveit::core::robotStateToRobotStateMsg(*robot_state_, entry.robot_state.state, false);
 
-    std_msgs::ColorRGBA color;
-    if (state.minimum_stability <= critical_stability_threshold_) {
-      color = color_critical;
-    } else if (state.minimum_stability <= warn_stability_threshold_) {
-      color = color_warn;
-    } else {
-      color = color_good;
-    }
     for (const auto& link: robot_model_->getLinkModelNames()) {
       moveit_msgs::ObjectColor object_color;
-      object_color.color = color;
+      object_color.color = stabilityToColorMsg(state.minimum_stability);
       object_color.id = link;
       entry.robot_state.highlight_links.push_back(object_color);
     }
@@ -334,6 +315,73 @@ Eigen::Isometry3d SpeedController::computeDiffDriveTransform(double linear_speed
   transform.translation().z() = 0;
 
   return transform;
+}
+void SpeedController::publishPredictedPath(const std::vector<RobotTerrainState>& robot_states) const {
+  if (predicted_path_pub_.getNumSubscribers() == 0) {
+    return;
+  }
+  visualization_msgs::Marker path_marker;
+  path_marker.header.frame_id = world_frame_;
+  path_marker.ns = "path";
+  path_marker.id = 0;
+  path_marker.type = visualization_msgs::Marker::LINE_STRIP;
+  path_marker.action = visualization_msgs::Marker::ADD;
+  path_marker.scale.x = 0.02;
+  path_marker.color.r = 0.0;
+  path_marker.color.g = 0.0;
+  path_marker.color.b = 1.0;
+  path_marker.color.a = 1.0;
+  path_marker.pose.orientation.w = 1.0;
+
+  visualization_msgs::Marker sphere_list_marker;
+  sphere_list_marker.header.frame_id = world_frame_;
+  sphere_list_marker.ns = "poses";
+  sphere_list_marker.id = 1;
+  sphere_list_marker.type = visualization_msgs::Marker::SPHERE_LIST;
+  sphere_list_marker.action = visualization_msgs::Marker::ADD;
+  sphere_list_marker.scale.x = 0.05;
+  sphere_list_marker.scale.y = 0.05;
+  sphere_list_marker.scale.z = 0.05;
+
+  for (const auto & robot_state : robot_states) {
+    geometry_msgs::Point point;
+    tf::pointEigenToMsg(robot_state.robot_pose.translation(), point);
+    sphere_list_marker.points.push_back(point);
+    path_marker.points.push_back(point);
+    std_msgs::ColorRGBA color = stabilityToColorMsg(robot_state.minimum_stability);
+    sphere_list_marker.colors.push_back(color);
+  }
+
+  if (path_marker.points.size() < 2) {
+    path_marker.action = visualization_msgs::Marker::DELETE;
+    path_marker.points.clear();
+  }
+
+  visualization_msgs::MarkerArray array;
+  array.markers.push_back(path_marker);
+  array.markers.push_back(sphere_list_marker);
+  predicted_path_pub_.publish(array);
+}
+std_msgs::ColorRGBA SpeedController::stabilityToColorMsg(double stability) const {
+  std_msgs::ColorRGBA color;
+  color.a = 1.0;
+  if (stability <= critical_stability_threshold_) {
+    // critical
+    color.r = 1.0;
+    color.g = 0.0;
+    color.b = 0;
+  } else if (stability <= warn_stability_threshold_) {
+    // warn
+    color.r = 1.0;
+    color.g = 1.0;
+    color.b = 0;
+  } else {
+    // good
+    color.r = 0;
+    color.g = 1.0;
+    color.b = 0;
+  }
+  return color;
 }
 
 }  // namespace hector_stability_assistance
