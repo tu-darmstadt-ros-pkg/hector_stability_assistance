@@ -61,8 +61,20 @@ bool SpeedController::init() {
 
 bool SpeedController::loadParameters(const ros::NodeHandle& nh) {
   prediction_horizon_ = nh.param("prediction_horizon", prediction_horizon_);
+  if (prediction_horizon_ < 0) {
+    ROS_ERROR("prediction_horizon must be greater or equal 0.");
+    return false;
+  }
   safety_distance_ = nh.param("safety_distance", prediction_horizon_);
+  if (safety_distance_ < 0) {
+    ROS_ERROR("safety_distance must be greater or equal 0.");
+    return false;
+  }
   sample_resolution_ = nh.param("sample_resolution", sample_resolution_);
+  if (sample_resolution_ <= 0) {
+    ROS_ERROR("sample_resolution must be greater than 0.");
+    return false;
+  }
   critical_stability_threshold_ = nh.param("critical_stability_threshold", critical_stability_threshold_);
   warn_stability_threshold_ = nh.param("warn_stability_threshold", warn_stability_threshold_);
   return true;
@@ -110,6 +122,7 @@ bool SpeedController::initPosePredictor() {
     pose_predictor_ = std::static_pointer_cast<hector_pose_prediction_interface::PosePredictor<double>>(sdf_pose_predictor);
   } else if (pose_predictor_name == "hector_heightmap_pose_prediction::HeightmapPosePredictor") {
     ROS_ERROR_STREAM("Not implemented.");
+    return false;
 
     //    auto robot_heightmap_provider = std::make_shared<hector_heightmap_pose_prediction::UrdfRobotHeightmapProvider<double>>(map_bag->resolution(), urdf_model_);
     //    robot_heightmap_provider->disableHeightmapCache();
@@ -162,6 +175,7 @@ std::vector<RobotTerrainState> SpeedController::predictTerrainInteraction(double
   current_terrain_state.time_delta = 0.0;
   if (!estimateRobotPose(current_robot_pose, joint_state, current_terrain_state, false)) {
     current_terrain_state.minimum_stability = -1;
+    ROS_WARN_STREAM("Failed to predict support polygon at current pose");
     return {std::move(current_terrain_state)};
   }
   robot_states.push_back(std::move(current_terrain_state));
@@ -210,7 +224,7 @@ double SpeedController::computeSpeedScaling(double linear, double angular,
 //      warn = true;
 //    }
     if (state.minimum_stability < critical_stability_threshold_) {
-      ROS_INFO_STREAM("Found critical state at t = " << state.time_delta);
+      ROS_INFO_STREAM("Found critical state at t = " << state.time_delta << " (" << state.minimum_stability << " < " << critical_stability_threshold_ << ")");
       critical = true;
       critical_time_delta = state.time_delta;
       stability_margin = state.minimum_stability;
@@ -253,11 +267,11 @@ bool SpeedController::estimateRobotPose(const Eigen::Isometry3d& robot_pose,
     robot_terrain_state.minimum_stability = pose_predictor_->predictPoseAndContactInformation(robot_pose_type, robot_terrain_state.support_polygon, robot_terrain_state.contact_information);
     success = !std::isnan(robot_terrain_state.minimum_stability);
   }
+  robot_terrain_state.robot_pose = robot_pose_type.asTransform();
   if (!success || robot_terrain_state.support_polygon.contact_hull_points.empty()) {
 //    ROS_WARN_STREAM("Failed to estimate support polygon.");
     return false;
   }
-  robot_terrain_state.robot_pose = robot_pose_type.asTransform();
   if (!predict_pose) {
     computeStabilityMargin(robot_terrain_state);
   }
