@@ -140,10 +140,11 @@ bool SpeedController::initPosePredictor() {
 }
 
 void SpeedController::cmdVelCallback(geometry_msgs::Twist twist_msg) {
-  ROS_INFO_STREAM("Input speed [" << twist_msg.linear.x << ", " << twist_msg.angular.z << "]");
   auto start = std::chrono::system_clock::now();
+//  ROS_INFO_STREAM("Input speed [" << twist_msg.linear.x << ", " << twist_msg.angular.z << "]");
+  ROS_INFO_STREAM("--- CMD VEL CALLBACK ---");
   computeSpeedCommand(twist_msg.linear.x, twist_msg.angular.z);
-  ROS_INFO_STREAM("Output speed [" << twist_msg.linear.x << ", " << twist_msg.angular.z << "]");
+//  ROS_INFO_STREAM("Output speed [" << twist_msg.linear.x << ", " << twist_msg.angular.z << "]");
   auto end = std::chrono::system_clock::now();
   auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
   ROS_INFO_STREAM("Cmd vel delay: " << elapsed.count() << " ms.");
@@ -180,7 +181,7 @@ std::vector<RobotTerrainState> SpeedController::predictTerrainInteraction(double
   }
   robot_states.push_back(std::move(current_terrain_state));
 
-  // Predict along robot trajectory
+  // Predict along robot trajectory (assumes constant velocity)
   double abs_linear = std::abs(linear);
   double prediction_distance = prediction_horizon_ * abs_linear;
   unsigned int steps = std::floor(prediction_distance / sample_resolution_);
@@ -220,15 +221,26 @@ double SpeedController::computeSpeedScaling(double linear, double angular,
   double critical_time_delta = 0.0;
   double stability_margin;
   for (const auto& state: robot_states) {
-//    if (state.minimum_stability < warn_stability_threshold_) {
-//      warn = true;
+    // If the second state improves stability, ignore t = 0
+//    if (critical) {
+//      if (state.minimum_stability > stability_margin) {
+//        ROS_INFO_STREAM("Next state is more stable: " << state.minimum_stability << " > " << stability_margin);
+//        critical = false;
+//      } else {
+//        break;
+//      }
 //    }
+
     if (state.minimum_stability < critical_stability_threshold_) {
       ROS_INFO_STREAM("Found critical state at t = " << state.time_delta << " (" << state.minimum_stability << " < " << critical_stability_threshold_ << ")");
       critical = true;
       critical_time_delta = state.time_delta;
       stability_margin = state.minimum_stability;
       break;
+
+//      if (state.time_delta != 0.0) {
+//        break;
+//      }
     }
   }
 
@@ -277,6 +289,7 @@ bool SpeedController::estimateRobotPose(const Eigen::Isometry3d& robot_pose,
   }
   return true;
 }
+
 void SpeedController::computeStabilityMargin(RobotTerrainState& robot_terrain_state) {
   if (robot_terrain_state.support_polygon.contact_hull_points.empty()) {
     return;
