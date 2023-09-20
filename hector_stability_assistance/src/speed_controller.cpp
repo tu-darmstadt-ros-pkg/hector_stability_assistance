@@ -18,7 +18,7 @@ SpeedController::SpeedController(const ros::NodeHandle& nh, const ros::NodeHandl
   prediction_horizon_(2.0),
   safety_distance_(0.0),
   sample_resolution_(0.05),
-  critical_stability_threshold_(0.5),
+  critical_stability_threshold_(0.0),
   warn_stability_threshold_(1.0)
 {
 }
@@ -224,31 +224,14 @@ double SpeedController::computeSpeedScaling(double linear, double angular,
     return 0.0;
   }
 
-//  bool warn = false;
   bool critical = false;
   double critical_time_delta = 0.0;
-  double stability_margin;
   for (const auto& state: robot_states) {
-    // If the second state improves stability, ignore t = 0
-//    if (critical) {
-//      if (state.minimum_stability > stability_margin) {
-//        ROS_INFO_STREAM("Next state is more stable: " << state.minimum_stability << " > " << stability_margin);
-//        critical = false;
-//      } else {
-//        break;
-//      }
-//    }
-
     if (state.minimum_stability < critical_stability_threshold_) {
       ROS_INFO_STREAM("Found critical state at t = " << state.time_delta << " (" << state.minimum_stability << " < " << critical_stability_threshold_ << ")");
       critical = true;
       critical_time_delta = state.time_delta;
-      stability_margin = state.minimum_stability;
       break;
-
-//      if (state.time_delta != 0.0) {
-//        break;
-//      }
     }
   }
 
