@@ -219,8 +219,12 @@ double SpeedController::computeSpeedScaling(double linear, double angular,
 
   double speed_scaling = 1.0;
   if (critical) {
-    speed_scaling = critical_time_delta / prediction_horizon_;
-    speed_scaling = std::min(speed_scaling, 1.0);
+    if (prediction_horizon_ > 0) {
+      speed_scaling = critical_time_delta / prediction_horizon_;
+      speed_scaling = std::min(speed_scaling, 1.0);
+    } else {
+      speed_scaling = 0.0;
+    }
   }
 
   ROS_INFO_STREAM("speed scaling: " << speed_scaling << ", critical time delta: " << critical_time_delta);
