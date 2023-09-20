@@ -6,6 +6,7 @@
 #include <hector_stability_metrics/metrics/force_angle_stability_measure.h>
 #include <moveit/robot_state/conversions.h>
 #include <hector_pose_prediction_ros/visualization.h>
+#include <std_msgs/Float64.h>
 #include "hector_stability_assistance/visualization.h"
 
 namespace hector_stability_assistance {
@@ -49,6 +50,7 @@ bool SpeedController::init() {
   support_polygon_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("support_polygon", 10);
   predicted_path_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("predicted_path", 10);
   robot_display_pub_ = pnh_.advertise<hector_rviz_plugins_msgs::DisplayMultiRobotState>("predicted_robot_states", 10);
+  speed_scaling_pub_ = pnh_.advertise<std_msgs::Float64>("speed_scaling", 10);
   cmd_vel_pub_ = pnh_.advertise<geometry_msgs::Twist>("cmd_vel_out", 10);
 
   // Subscribers
@@ -222,6 +224,10 @@ double SpeedController::computeSpeedScaling(double linear, double angular,
   }
 
   ROS_INFO_STREAM("speed scaling: " << speed_scaling << ", critical time delta: " << critical_time_delta);
+
+  std_msgs::Float64 float_msg;
+  float_msg.data = speed_scaling;
+  speed_scaling_pub_.publish(float_msg);
   return speed_scaling;
 }
 

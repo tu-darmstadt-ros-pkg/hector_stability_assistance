@@ -80,6 +80,7 @@ private:
   ros::Publisher robot_display_pub_;
   ros::Publisher support_polygon_pub_;
   ros::Publisher predicted_path_pub_;
+  ros::Publisher speed_scaling_pub_;
 };
 
 }  // namespace hector_stability_assistance
