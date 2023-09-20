@@ -16,6 +16,7 @@ SpeedController::SpeedController(const ros::NodeHandle& nh, const ros::NodeHandl
   pnh_(pnh),
   enabled_(true),
   prediction_horizon_(2.0),
+  safety_distance_(0.0),
   sample_resolution_(0.05),
   critical_stability_threshold_(0.5),
   warn_stability_threshold_(1.0)
@@ -70,7 +71,7 @@ bool SpeedController::loadParameters(const ros::NodeHandle& nh) {
     ROS_ERROR("prediction_horizon must be greater or equal 0.");
     return false;
   }
-  safety_distance_ = nh.param("safety_distance", prediction_horizon_);
+  safety_distance_ = nh.param("safety_distance", safety_distance_);
   if (safety_distance_ < 0) {
     ROS_ERROR("safety_distance must be greater or equal 0.");
     return false;
