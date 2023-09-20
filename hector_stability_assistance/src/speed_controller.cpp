@@ -281,7 +281,6 @@ bool SpeedController::estimateRobotPose(const Eigen::Isometry3d& robot_pose,
   }
   robot_terrain_state.robot_pose = robot_pose_type.asTransform();
   if (!success || robot_terrain_state.support_polygon.contact_hull_points.empty()) {
-//    ROS_WARN_STREAM("Failed to estimate support polygon.");
     return false;
   }
   if (!predict_pose) {
