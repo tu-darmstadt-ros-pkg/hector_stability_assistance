@@ -9,6 +9,7 @@
 #include <moveit/robot_model/robot_model.h>
 #include <urdf/model.h>
 #include <hector_pose_prediction_interface/pose_predictor.h>
+#include <std_msgs/Bool.h>
 
 #include <hector_stability_assistance/robot_state_provider.h>
 
@@ -44,6 +45,8 @@ private:
   void computeStabilityMargin(RobotTerrainState& robot_terrain_state);
 
   void cmdVelCallback(geometry_msgs::Twist twist_msg);
+  void enableCallback(const std_msgs::BoolConstPtr& bool_msg);
+  void publishEnabledStatus();
 
   void publishTerrainInteraction(const std::vector<RobotTerrainState>& robot_states);
   void publishMultiRobotState(const std::vector<RobotTerrainState>& robot_states) const;
@@ -57,6 +60,7 @@ private:
   ros::NodeHandle pnh_;
 
   /// Parameters
+  bool enabled_;
   double prediction_horizon_;
   double safety_distance_;
   double sample_resolution_;
@@ -76,12 +80,14 @@ private:
   std::shared_ptr<RobotStateProvider> state_provider_;
 
   ros::Subscriber cmd_vel_sub_;
+  ros::Subscriber enable_sub_;
 
   ros::Publisher cmd_vel_pub_;
   ros::Publisher robot_display_pub_;
   ros::Publisher support_polygon_pub_;
   ros::Publisher predicted_path_pub_;
   ros::Publisher speed_scaling_pub_;
+  ros::Publisher enabled_status_pub_;
 };
 
 }  // namespace hector_stability_assistance

@@ -14,6 +14,7 @@ namespace hector_stability_assistance {
 SpeedController::SpeedController(const ros::NodeHandle& nh, const ros::NodeHandle& pnh)
 : nh_(nh),
   pnh_(pnh),
+  enabled_(true),
   prediction_horizon_(2.0),
   sample_resolution_(0.05),
   critical_stability_threshold_(0.5),
@@ -52,14 +53,18 @@ bool SpeedController::init() {
   robot_display_pub_ = pnh_.advertise<hector_rviz_plugins_msgs::DisplayMultiRobotState>("predicted_robot_states", 10);
   speed_scaling_pub_ = pnh_.advertise<std_msgs::Float64>("speed_scaling", 10);
   cmd_vel_pub_ = pnh_.advertise<geometry_msgs::Twist>("cmd_vel_out", 10);
+  enabled_status_pub_ = pnh_.advertise<std_msgs::Bool>("enabled_status", 10, true);
+  publishEnabledStatus();
 
   // Subscribers
   cmd_vel_sub_ = pnh_.subscribe<geometry_msgs::Twist>("cmd_vel_in", 10, &SpeedController::cmdVelCallback, this);
+  enable_sub_ = pnh_.subscribe<std_msgs::Bool>("enable", 10, &SpeedController::enableCallback, this);
 
   return true;
 }
 
 bool SpeedController::loadParameters(const ros::NodeHandle& nh) {
+  enabled_ = nh.param("enabled", enabled_);
   prediction_horizon_ = nh.param("prediction_horizon", prediction_horizon_);
   if (prediction_horizon_ < 0) {
     ROS_ERROR("prediction_horizon must be greater or equal 0.");
@@ -140,14 +145,16 @@ bool SpeedController::initPosePredictor() {
 }
 
 void SpeedController::cmdVelCallback(geometry_msgs::Twist twist_msg) {
-  auto start = std::chrono::system_clock::now();
-//  ROS_INFO_STREAM("Input speed [" << twist_msg.linear.x << ", " << twist_msg.angular.z << "]");
-  ROS_INFO_STREAM("--- CMD VEL CALLBACK ---");
-  computeSpeedCommand(twist_msg.linear.x, twist_msg.angular.z);
-//  ROS_INFO_STREAM("Output speed [" << twist_msg.linear.x << ", " << twist_msg.angular.z << "]");
-  auto end = std::chrono::system_clock::now();
-  auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-  ROS_INFO_STREAM("Cmd vel delay: " << elapsed.count() << " ms.");
+  if (enabled_) {
+    auto start = std::chrono::system_clock::now();
+    //  ROS_INFO_STREAM("Input speed [" << twist_msg.linear.x << ", " << twist_msg.angular.z << "]");
+    ROS_INFO_STREAM("--- CMD VEL CALLBACK ---");
+    computeSpeedCommand(twist_msg.linear.x, twist_msg.angular.z);
+    //  ROS_INFO_STREAM("Output speed [" << twist_msg.linear.x << ", " << twist_msg.angular.z << "]");
+    auto end = std::chrono::system_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    ROS_INFO_STREAM("Cmd vel delay: " << elapsed.count() << " ms.");
+  }
   cmd_vel_pub_.publish(twist_msg);
 }
 
@@ -435,6 +442,18 @@ std_msgs::ColorRGBA SpeedController::stabilityToColorMsg(double stability) const
     color.b = 0;
   }
   return color;
+}
+
+void SpeedController::enableCallback(const std_msgs::BoolConstPtr& bool_msg) {
+  enabled_ = bool_msg->data;
+  ROS_INFO_STREAM((enabled_ ? "Enabling " : "Disabling ") << "stability speed controller.");
+  publishEnabledStatus();
+}
+
+void SpeedController::publishEnabledStatus() {
+  std_msgs::Bool bool_msg;
+  bool_msg.data = enabled_;
+  enabled_status_pub_.publish(bool_msg);
 }
 
 }  // namespace hector_stability_assistance
