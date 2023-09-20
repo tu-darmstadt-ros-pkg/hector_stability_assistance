@@ -240,6 +240,7 @@ bool SpeedController::estimateRobotPose(const Eigen::Isometry3d& robot_pose,
                                         RobotTerrainState& robot_terrain_state, bool predict_pose) {
   pose_predictor_->robotModel()->updateJointPositions(joint_positions);
   robot_terrain_state.joint_positions = joint_positions;
+  robot_terrain_state.center_of_mass = pose_predictor_->robotModel()->centerOfMass();
   hector_math::Pose<double> robot_pose_type(robot_pose);
   bool success;
   if (!predict_pose) {
