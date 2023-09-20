@@ -58,6 +58,7 @@ private:
 
   /// Parameters
   double prediction_horizon_;
+  double safety_distance_;
   double sample_resolution_;
   double critical_stability_threshold_;
   double warn_stability_threshold_;

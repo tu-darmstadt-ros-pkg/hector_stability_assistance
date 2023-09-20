@@ -61,6 +61,7 @@ bool SpeedController::init() {
 
 bool SpeedController::loadParameters(const ros::NodeHandle& nh) {
   prediction_horizon_ = nh.param("prediction_horizon", prediction_horizon_);
+  safety_distance_ = nh.param("safety_distance", prediction_horizon_);
   sample_resolution_ = nh.param("sample_resolution", sample_resolution_);
   critical_stability_threshold_ = nh.param("critical_stability_threshold", critical_stability_threshold_);
   warn_stability_threshold_ = nh.param("warn_stability_threshold", warn_stability_threshold_);
@@ -220,7 +221,10 @@ double SpeedController::computeSpeedScaling(double linear, double angular,
   double speed_scaling = 1.0;
   if (critical) {
     if (prediction_horizon_ > 0) {
-      speed_scaling = critical_time_delta / prediction_horizon_;
+      // Linearly reduce speed up to a safety distance in front of the critical state
+      double time_safety = safety_distance_ / std::abs(linear);
+      double time_until_stop = std::max(critical_time_delta - time_safety, 0.0);
+      speed_scaling =  time_until_stop / prediction_horizon_;
       speed_scaling = std::min(speed_scaling, 1.0);
     } else {
       speed_scaling = 0.0;

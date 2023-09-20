@@ -6,6 +6,7 @@
     <param name="warn_stability_threshold" value="1.0"/>
     <param name="sample_resolution" value="0.05"/>
     <param name="prediction_horizon" value="1.0"/>
+    <param name="safety_distance" value="0.15"/>
 
     <!-- sdf contact estimation lib parameters -->
     <param name="pose_predictor" value="sdf_contact_estimation::SDFContactEstimation"/>
