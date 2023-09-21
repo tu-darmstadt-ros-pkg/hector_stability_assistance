@@ -45,7 +45,7 @@ private:
                          RobotTerrainState& robot_terrain_state, bool predict_pose);
   void computeStabilityMargin(RobotTerrainState& robot_terrain_state);
 
-  void cmdVelCallback(geometry_msgs::Twist twist_msg);
+  void cmdVelCallback(const geometry_msgs::TwistConstPtr& twist_msg);
   void enableCallback(const std_msgs::BoolConstPtr& bool_msg);
   void publishEnabledStatus();
 
@@ -74,6 +74,7 @@ private:
 
   geometry_msgs::Twist latest_twist_;
   bool last_twist_zero_;
+  bool command_received_;
 
   hector_pose_prediction_interface::PosePredictor<double>::Ptr pose_predictor_;
   std::shared_ptr<urdf::Model> urdf_;

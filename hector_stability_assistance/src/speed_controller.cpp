@@ -21,9 +21,9 @@ SpeedController::SpeedController(const ros::NodeHandle& nh, const ros::NodeHandl
   sample_resolution_(0.05),
   critical_stability_threshold_(0.0),
   warn_stability_threshold_(1.0),
-  last_twist_zero_(false)
-{
-}
+  last_twist_zero_(false),
+  command_received_(false)
+{}
 
 bool SpeedController::init() {
   if (!loadParameters(pnh_)) {
@@ -156,7 +156,11 @@ bool SpeedController::initPosePredictor() {
 
 
 void SpeedController::timerCallback(const ros::TimerEvent& event) {
+  if (!command_received_) {
+    return;
+  }
   geometry_msgs::Twist twist = latest_twist_;
+  command_received_ = false;
   if (enabled_) {
     auto start = std::chrono::system_clock::now();
     //  ROS_INFO_STREAM("Input speed [" << twist_msg.linear.x << ", " << twist_msg.angular.z << "]");
@@ -178,8 +182,9 @@ void SpeedController::timerCallback(const ros::TimerEvent& event) {
   cmd_vel_pub_.publish(twist);
 }
 
-void SpeedController::cmdVelCallback(geometry_msgs::Twist twist_msg) {
-  latest_twist_ = twist_msg;
+void SpeedController::cmdVelCallback(const geometry_msgs::TwistConstPtr& twist_msg) {
+  latest_twist_ = *twist_msg;
+  command_received_ = true;
 }
 
 void SpeedController::computeSpeedCommand(double& linear, double& angular) {
