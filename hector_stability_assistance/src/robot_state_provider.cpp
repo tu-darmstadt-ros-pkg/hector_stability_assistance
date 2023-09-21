@@ -54,4 +54,15 @@ void RobotStateProvider::jointStateCallback(const sensor_msgs::JointStateConstPt
 bool RobotStateProvider::jointStateComplete() const {
   return missing_joint_states_.empty();
 }
+
+std::unordered_map<std::string, double> RobotStateProvider::extrapolateJointPositions(
+    const std::unordered_map<std::string, double> &current_joint_positions,
+    const std::unordered_map<std::string, double> &joint_speeds, double dt) const {
+  std::unordered_map<std::string, double> extrapolated_joint_positions = current_joint_positions;
+  for (auto const& joint_speed: joint_speeds) {
+    extrapolated_joint_positions[joint_speed.first] = current_joint_positions.at(joint_speed.first) + joint_speed.second * dt;
+  }
+  return extrapolated_joint_positions;
+}
+
 }  // namespace hector_stability_assistance

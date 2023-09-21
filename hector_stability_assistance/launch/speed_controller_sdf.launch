@@ -8,6 +8,17 @@
     <param name="prediction_horizon" value="1.0"/>
     <param name="safety_distance" value="0.15"/>
 
+    <!-- joints -->
+    <rosparam>
+      joints:
+        flipper_front_joint:
+          in: /flipper_control/flipper_front_velocity_controller/command_unlimited
+          out: /flipper_control/flipper_front_velocity_controller/command
+        flipper_back_joint:
+          in: /flipper_control/flipper_back_velocity_controller/command_unlimited
+          out: /flipper_control/flipper_back_velocity_controller/command
+    </rosparam>
+
     <!-- sdf contact estimation lib parameters -->
     <param name="pose_predictor" value="sdf_contact_estimation::SDFContactEstimation"/>
     <rosparam file="$(find hector_stability_assistance)/config/sdf_contact_estimation.yaml" command="load" ns="sdf_pose_predictor"/>

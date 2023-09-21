@@ -17,6 +17,8 @@ public:
   bool getRobotPose(Eigen::Isometry3d& robot_pose) const;
   bool jointStateComplete() const;
   const std::unordered_map<std::string, double>& getJointState() const;
+
+  std::unordered_map<std::string, double> extrapolateJointPositions(const std::unordered_map<std::string, double>& current_joint_positions, const std::unordered_map<std::string, double>& joint_speeds, double dt) const;
 private:
   void jointStateCallback(const sensor_msgs::JointStateConstPtr& joint_state_msg);
 

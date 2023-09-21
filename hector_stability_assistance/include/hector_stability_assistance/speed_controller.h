@@ -10,6 +10,7 @@
 #include <urdf/model.h>
 #include <hector_pose_prediction_interface/pose_predictor.h>
 #include <std_msgs/Bool.h>
+#include <std_msgs/Float64.h>
 
 #include <hector_stability_assistance/robot_state_provider.h>
 
@@ -32,12 +33,13 @@ public:
   bool init();
 private:
   bool loadParameters(const ros::NodeHandle& nh);
+  bool loadJoints(const ros::NodeHandle& nh);
   bool initRobotModel();
   bool initPosePredictor();
 
   void timerCallback(const ros::TimerEvent& event);
-  void computeSpeedCommand(double& linear, double& angular);
-  std::vector<RobotTerrainState> predictTerrainInteraction(double linear, double angular);
+  void computeSpeedCommand(double& linear, double& angular, std::unordered_map<std::string, double>& joint_speeds);
+  std::vector<RobotTerrainState> predictTerrainInteraction(double linear, double angular, const std::unordered_map<std::string, double>& joint_speeds);
   double computeSpeedScaling(double linear, double angular, const std::vector<RobotTerrainState>& robot_states);
 
   bool estimateRobotPose(const Eigen::Isometry3d& robot_pose,
@@ -46,6 +48,7 @@ private:
   void computeStabilityMargin(RobotTerrainState& robot_terrain_state);
 
   void cmdVelCallback(const geometry_msgs::TwistConstPtr& twist_msg);
+  void flipperCmdCallback(const std::string& joint, const std_msgs::Float64ConstPtr& float_msg);
   void enableCallback(const std_msgs::BoolConstPtr& bool_msg);
   void publishEnabledStatus();
 
@@ -76,6 +79,8 @@ private:
   bool last_twist_zero_;
   bool command_received_;
 
+  std::unordered_map<std::string, double> latest_flipper_speed_;
+
   hector_pose_prediction_interface::PosePredictor<double>::Ptr pose_predictor_;
   std::shared_ptr<urdf::Model> urdf_;
   moveit::core::RobotModelConstPtr robot_model_;
@@ -88,9 +93,12 @@ private:
   ros::Timer timer_;
 
   ros::Subscriber cmd_vel_sub_;
+  std::unordered_map<std::string, ros::Subscriber> flipper_cmd_subs_;
   ros::Subscriber enable_sub_;
 
   ros::Publisher cmd_vel_pub_;
+  std::unordered_map<std::string, ros::Publisher> flipper_cmd_pubs_;
+
   ros::Publisher robot_display_pub_;
   ros::Publisher support_polygon_pub_;
   ros::Publisher predicted_path_pub_;

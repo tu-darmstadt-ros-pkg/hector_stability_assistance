@@ -6,7 +6,6 @@
 #include <hector_stability_metrics/metrics/force_angle_stability_measure.h>
 #include <moveit/robot_state/conversions.h>
 #include <hector_pose_prediction_ros/visualization.h>
-#include <std_msgs/Float64.h>
 #include "hector_stability_assistance/visualization.h"
 
 namespace hector_stability_assistance {
@@ -92,6 +91,40 @@ bool SpeedController::loadParameters(const ros::NodeHandle& nh) {
   }
   critical_stability_threshold_ = nh.param("critical_stability_threshold", critical_stability_threshold_);
   warn_stability_threshold_ = nh.param("warn_stability_threshold", warn_stability_threshold_);
+
+  return loadJoints(nh);
+}
+
+bool SpeedController::loadJoints(const ros::NodeHandle& nh) {
+  XmlRpc::XmlRpcValue joints;
+  nh.getParam("joints", joints);
+  if (joints.getType() != XmlRpc::XmlRpcValue::TypeStruct) {
+    ROS_ERROR_STREAM(nh.getNamespace() << "/joints is not a struct.");
+    return false;
+  }
+  for(XmlRpc::XmlRpcValue::ValueStruct::const_iterator it = joints.begin(); it != joints.end(); ++it) {
+    const std::string& joint_name = it->first;
+    const XmlRpc::XmlRpcValue& joint_dict = it->second;
+    if (joint_dict.getType() != XmlRpc::XmlRpcValue::TypeStruct) {
+      ROS_ERROR_STREAM(nh.getNamespace() << "/" << joint_name << " is not a struct.");
+      continue;
+    }
+    if (joint_dict["in"].getType() != XmlRpc::XmlRpcValue::TypeString) {
+      ROS_ERROR_STREAM(nh.getNamespace() << "/" << joint_name << "/in is not a string.");
+      continue;
+    }
+    const std::string in_topic = static_cast<std::string>(joint_dict["in"]);
+    if (joint_dict["out"].getType() != XmlRpc::XmlRpcValue::TypeString) {
+      ROS_ERROR_STREAM(nh.getNamespace() << "/" << joint_name << "/out is not a string.");
+      continue;
+    }
+    const std::string out_topic = static_cast<std::string>(joint_dict["out"]);
+
+    flipper_cmd_subs_[joint_name] = nh_.subscribe<std_msgs::Float64>(in_topic, 10, std::bind(&SpeedController::flipperCmdCallback, this, joint_name, std::placeholders::_1));
+    flipper_cmd_pubs_[joint_name] = nh_.advertise<std_msgs::Float64>(out_topic, 10, false);
+    latest_flipper_speed_[joint_name] = 0.0;
+  }
+
   return true;
 }
 
@@ -155,17 +188,19 @@ bool SpeedController::initPosePredictor() {
 }
 
 
-void SpeedController::timerCallback(const ros::TimerEvent& event) {
+void SpeedController::timerCallback(const ros::TimerEvent& /*event*/) {
   if (!command_received_) {
     return;
   }
   geometry_msgs::Twist twist = latest_twist_;
+  std::unordered_map<std::string, double> joint_speed = latest_flipper_speed_;
+
   command_received_ = false;
   if (enabled_) {
     auto start = std::chrono::system_clock::now();
     //  ROS_INFO_STREAM("Input speed [" << twist_msg.linear.x << ", " << twist_msg.angular.z << "]");
     ROS_INFO_STREAM("--- CMD VEL CALLBACK ---");
-    computeSpeedCommand(twist.linear.x, twist.angular.z);
+    computeSpeedCommand(twist.linear.x, twist.angular.z, joint_speed);
     //  ROS_INFO_STREAM("Output speed [" << twist_msg.linear.x << ", " << twist_msg.angular.z << "]");
     auto end = std::chrono::system_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
@@ -187,15 +222,23 @@ void SpeedController::cmdVelCallback(const geometry_msgs::TwistConstPtr& twist_m
   command_received_ = true;
 }
 
-void SpeedController::computeSpeedCommand(double& linear, double& angular) {
-  std::vector<RobotTerrainState> robot_states = predictTerrainInteraction(linear, angular);
+void SpeedController::flipperCmdCallback(const std::string& joint, const std_msgs::Float64ConstPtr& float_msg) {
+  latest_flipper_speed_[joint] = float_msg->data;
+  command_received_ = true;
+}
+
+void SpeedController::computeSpeedCommand(double& linear, double& angular, std::unordered_map<std::string, double>& joint_speeds) {
+  std::vector<RobotTerrainState> robot_states = predictTerrainInteraction(linear, angular, joint_speeds);
   publishTerrainInteraction(robot_states);
   double speed_scaling = computeSpeedScaling(linear, angular, robot_states);
   linear *= speed_scaling;
   angular *= speed_scaling;
+  for (auto& joint_speed: joint_speeds) {
+    joint_speed.second *= speed_scaling;
+  }
 }
 
-std::vector<RobotTerrainState> SpeedController::predictTerrainInteraction(double linear, double angular) {
+std::vector<RobotTerrainState> SpeedController::predictTerrainInteraction(double linear, double angular, const std::unordered_map<std::string, double>& joint_speeds) {
   // Get current robot pose and joint state
   Eigen::Isometry3d current_robot_pose;
   if (!state_provider_->getRobotPose(current_robot_pose)) {
@@ -228,10 +271,12 @@ std::vector<RobotTerrainState> SpeedController::predictTerrainInteraction(double
     // last result + fk
     Eigen::Isometry3d predicted_pose = robot_states.back().robot_pose * robot_delta_motion;
 
+    auto extrapolated_joint_positions = state_provider_->extrapolateJointPositions(joint_state, joint_speeds, time_step * i);
+
     // pose prediction
     RobotTerrainState robot_terrain_state;
     robot_terrain_state.time_delta = time_step * i;
-    if (!estimateRobotPose(predicted_pose, joint_state, robot_terrain_state, true)) {
+    if (!estimateRobotPose(predicted_pose, extrapolated_joint_positions, robot_terrain_state, true)) {
       robot_terrain_state.minimum_stability = -1;
       ROS_WARN_STREAM("Failed to predict support polygon at t = " << robot_terrain_state.time_delta);
       robot_states.push_back(std::move(robot_terrain_state));
