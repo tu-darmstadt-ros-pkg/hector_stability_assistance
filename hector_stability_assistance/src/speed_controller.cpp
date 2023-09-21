@@ -15,11 +15,13 @@ SpeedController::SpeedController(const ros::NodeHandle& nh, const ros::NodeHandl
 : nh_(nh),
   pnh_(pnh),
   enabled_(true),
+  control_rate_(20.0),
   prediction_horizon_(2.0),
   safety_distance_(0.0),
   sample_resolution_(0.05),
   critical_stability_threshold_(0.0),
-  warn_stability_threshold_(1.0)
+  warn_stability_threshold_(1.0),
+  last_twist_zero_(false)
 {
 }
 
@@ -61,11 +63,18 @@ bool SpeedController::init() {
   cmd_vel_sub_ = pnh_.subscribe<geometry_msgs::Twist>("cmd_vel_in", 10, &SpeedController::cmdVelCallback, this);
   enable_sub_ = pnh_.subscribe<std_msgs::Bool>("enable", 10, &SpeedController::enableCallback, this);
 
+  timer_ = nh_.createTimer(ros::Duration(1/control_rate_), &SpeedController::timerCallback, this, false, true);
+
   return true;
 }
 
 bool SpeedController::loadParameters(const ros::NodeHandle& nh) {
   enabled_ = nh.param("enabled", enabled_);
+  control_rate_ = nh.param("control_rate", control_rate_);
+  if (control_rate_ <= 0) {
+    ROS_ERROR("control_rate must be greater 0.");
+    return false;
+  }
   prediction_horizon_ = nh.param("prediction_horizon", prediction_horizon_);
   if (prediction_horizon_ < 0) {
     ROS_ERROR("prediction_horizon must be greater or equal 0.");
@@ -145,18 +154,32 @@ bool SpeedController::initPosePredictor() {
   return true;
 }
 
-void SpeedController::cmdVelCallback(geometry_msgs::Twist twist_msg) {
+
+void SpeedController::timerCallback(const ros::TimerEvent& event) {
+  geometry_msgs::Twist twist = latest_twist_;
   if (enabled_) {
     auto start = std::chrono::system_clock::now();
     //  ROS_INFO_STREAM("Input speed [" << twist_msg.linear.x << ", " << twist_msg.angular.z << "]");
     ROS_INFO_STREAM("--- CMD VEL CALLBACK ---");
-    computeSpeedCommand(twist_msg.linear.x, twist_msg.angular.z);
+    computeSpeedCommand(twist.linear.x, twist.angular.z);
     //  ROS_INFO_STREAM("Output speed [" << twist_msg.linear.x << ", " << twist_msg.angular.z << "]");
     auto end = std::chrono::system_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     ROS_INFO_STREAM("Cmd vel delay: " << elapsed.count() << " ms.");
   }
-  cmd_vel_pub_.publish(twist_msg);
+  if (twist.linear.x == 0 && twist.angular.z == 0) {
+    if (last_twist_zero_) {
+      return;
+    }
+    last_twist_zero_ = true;
+  } else {
+    last_twist_zero_ = false;
+  }
+  cmd_vel_pub_.publish(twist);
+}
+
+void SpeedController::cmdVelCallback(geometry_msgs::Twist twist_msg) {
+  latest_twist_ = twist_msg;
 }
 
 void SpeedController::computeSpeedCommand(double& linear, double& angular) {

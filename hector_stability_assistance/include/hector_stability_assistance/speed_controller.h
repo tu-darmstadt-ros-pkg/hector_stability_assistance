@@ -35,6 +35,7 @@ private:
   bool initRobotModel();
   bool initPosePredictor();
 
+  void timerCallback(const ros::TimerEvent& event);
   void computeSpeedCommand(double& linear, double& angular);
   std::vector<RobotTerrainState> predictTerrainInteraction(double linear, double angular);
   double computeSpeedScaling(double linear, double angular, const std::vector<RobotTerrainState>& robot_states);
@@ -61,6 +62,7 @@ private:
 
   /// Parameters
   bool enabled_;
+  double control_rate_;
   double prediction_horizon_;
   double safety_distance_;
   double sample_resolution_;
@@ -70,6 +72,9 @@ private:
   std::string world_frame_;
   std::string base_frame_;
 
+  geometry_msgs::Twist latest_twist_;
+  bool last_twist_zero_;
+
   hector_pose_prediction_interface::PosePredictor<double>::Ptr pose_predictor_;
   std::shared_ptr<urdf::Model> urdf_;
   moveit::core::RobotModelConstPtr robot_model_;
@@ -78,6 +83,8 @@ private:
   std::shared_ptr<voxblox::EsdfServer> esdf_server_;
 
   std::shared_ptr<RobotStateProvider> state_provider_;
+
+  ros::Timer timer_;
 
   ros::Subscriber cmd_vel_sub_;
   ros::Subscriber enable_sub_;
