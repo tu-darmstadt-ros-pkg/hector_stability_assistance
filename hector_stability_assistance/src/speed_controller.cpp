@@ -298,7 +298,6 @@ std::vector<RobotTerrainState> SpeedController::predictTerrainInteraction(double
   for (unsigned int i = 1; i <= steps; ++i) {
     // last result + fk
     Eigen::Isometry3d predicted_pose = robot_states.back().robot_pose * robot_delta_motion;
-
     auto extrapolated_joint_positions = state_provider_->extrapolateJointPositions(joint_state, joint_speeds, time_step * i);
 
     // pose prediction
@@ -465,10 +464,12 @@ void SpeedController::publishSupportPolygon(const std::vector<RobotTerrainState>
   }
   visualization::deleteAllMarkers(support_polygon_pub_);
   visualization_msgs::MarkerArray support_polygon_marker_array;
-  for (const auto& state: robot_states) {
-    hector_pose_prediction_interface::visualization::addSupportPolygonWithContactInformationToMarkerArray(
-        support_polygon_marker_array, state.support_polygon, state.contact_information, world_frame_);
-  }
+//  for (const auto& state: robot_states) {
+//    hector_pose_prediction_interface::visualization::addSupportPolygonWithContactInformationToMarkerArray(
+//        support_polygon_marker_array, state.support_polygon, state.contact_information, world_frame_);
+//  }
+  hector_pose_prediction_interface::visualization::addSupportPolygonWithContactInformationToMarkerArray(
+      support_polygon_marker_array, robot_states.back().support_polygon, robot_states.back().contact_information, world_frame_);
   visualization::fixIds(support_polygon_marker_array);
   support_polygon_pub_.publish(support_polygon_marker_array);
 }
