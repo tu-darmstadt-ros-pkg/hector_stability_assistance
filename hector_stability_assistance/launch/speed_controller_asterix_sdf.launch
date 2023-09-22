@@ -33,7 +33,7 @@
     <param name="esdf_server/update_mesh_every_n_sec" value="0.0"/>
     <remap from="~/esdf_server/esdf_map_in" to="/esdf_server/esdf_map_out" />
 
-    <remap from="~cmd_vel_in" to="/cmd_unthrottled_vel_raw"/>
+    <remap from="~cmd_vel_in" to="/cmd_vel_unlimited"/>
     <remap from="~cmd_vel_out" to="/cmd_vel_raw"/>
   </node>
 </launch>
