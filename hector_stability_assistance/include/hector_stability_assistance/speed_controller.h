@@ -3,12 +3,12 @@
 
 #include <ros/ros.h>
 #include <unordered_map>
+#include <hector_pose_prediction_interface/pose_predictor.h>
 #include <hector_pose_prediction_interface/types.h>
 #include <voxblox_ros/esdf_server.h>
 #include <moveit/robot_state/robot_state.h>
 #include <moveit/robot_model/robot_model.h>
 #include <urdf/model.h>
-#include <hector_pose_prediction_interface/pose_predictor.h>
 #include <std_msgs/Bool.h>
 #include <std_msgs/Float64.h>
 

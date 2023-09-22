@@ -6,67 +6,38 @@ add_compile_options(-std=c++14)
 find_package(catkin REQUIRED COMPONENTS
   urdf
   tf2_ros
-#  hector_heightmap_pose_prediction
   hector_pose_prediction_interface
-#  hector_rviz_overlay
-  visualization_msgs
-#  grid_map_msgs
+  hector_stability_metrics
+  hector_pose_prediction_ros
   std_msgs
   sensor_msgs
   geometry_msgs
+  visualization_msgs
   hector_rviz_plugins_msgs
   eigen_conversions
-#  grid_map_ros
-#  hector_world_heightmap_ros
   voxblox_ros
   sdf_contact_estimation
   moveit_core
 )
 
-################################################
-## Declare ROS dynamic reconfigure parameters ##
-################################################
-
-## To declare and build dynamic reconfigure parameters within this
-## package, follow these steps:
-## * In the file package.xml:
-##   * add a build_depend and a exec_depend tag for "dynamic_reconfigure"
-## * In this file (CMakeLists.txt):
-##   * add "dynamic_reconfigure" to
-##     find_package(catkin REQUIRED COMPONENTS ...)
-##   * uncomment the "generate_dynamic_reconfigure_options" section below
-##     and list every .cfg file to be processed
-
-## Generate dynamic reconfigure parameters in the 'cfg' folder
-# generate_dynamic_reconfigure_options(
-#   cfg/DynReconf1.cfg
-#   cfg/DynReconf2.cfg
-# )
-
-###################################
-## catkin specific configuration ##
-###################################
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES hector_stability_assistance
   CATKIN_DEPENDS
-    tf2_ros
-    urdf
-#    hector_heightmap_pose_prediction
-    hector_pose_prediction_interface
-#    hector_rviz_overlay
-    visualization_msgs
-#    grid_map_msgs
-    std_msgs
-    sensor_msgs
-    geometry_msgs
-    hector_rviz_plugins_msgs
-    eigen_conversions
-#    grid_map_ros
-#    hector_world_heightmap_ros
-    voxblox_ros
-    sdf_contact_estimation
-    moveit_core
+   urdf
+   tf2_ros
+   hector_pose_prediction_interface
+   hector_stability_metrics
+   hector_pose_prediction_ros
+   std_msgs
+   sensor_msgs
+   geometry_msgs
+   visualization_msgs
+   hector_rviz_plugins_msgs
+   eigen_conversions
+   voxblox_ros
+   sdf_contact_estimation
+   moveit_core
 #  DEPENDS system_lib
 )
 
@@ -111,7 +82,7 @@ target_link_libraries(speed_controller_node ${PROJECT_NAME})
 ## Install ##
 #############
 
- install(DIRECTORY
+install(DIRECTORY
    launch
    config
    DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
@@ -135,21 +106,3 @@ install(DIRECTORY include/${PROJECT_NAME}/
   FILES_MATCHING PATTERN "*.h"
   PATTERN ".svn" EXCLUDE
 )
-
-# install(FILES 
-#   nodelet_plugins.xml
-#   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-# )
-
-#############
-## Testing ##
-#############
-
-## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_hector_stability_assistance.cpp)
-# if(TARGET ${PROJECT_NAME}-test)
-#   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
-# endif()
-
-## Add folders to be run by python nosetests
-# catkin_add_nosetests(test)

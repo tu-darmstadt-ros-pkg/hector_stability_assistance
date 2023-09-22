@@ -1,4 +1,7 @@
 #include <hector_stability_assistance/speed_controller.h>
+
+#include <hector_stability_assistance/visualization.h>
+
 #include <sdf_contact_estimation/sdf/sdf_model.h>
 #include <sdf_contact_estimation/sdf_contact_estimation.h>
 #include <sdf_contact_estimation/util/utils.h>
@@ -6,7 +9,6 @@
 #include <hector_stability_metrics/metrics/force_angle_stability_measure.h>
 #include <moveit/robot_state/conversions.h>
 #include <hector_pose_prediction_ros/visualization.h>
-#include "hector_stability_assistance/visualization.h"
 
 namespace hector_stability_assistance {
 
