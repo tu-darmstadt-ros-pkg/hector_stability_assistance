@@ -194,28 +194,34 @@ void SpeedController::timerCallback(const ros::TimerEvent& /*event*/) {
     return;
   }
   geometry_msgs::Twist twist = latest_twist_;
-  std::unordered_map<std::string, double> joint_speed = latest_flipper_speed_;
+  std::unordered_map<std::string, double> joint_speeds = latest_flipper_speed_;
 
   command_received_ = false;
   if (enabled_) {
     auto start = std::chrono::system_clock::now();
     //  ROS_INFO_STREAM("Input speed [" << twist_msg.linear.x << ", " << twist_msg.angular.z << "]");
     ROS_INFO_STREAM("--- CMD VEL CALLBACK ---");
-    computeSpeedCommand(twist.linear.x, twist.angular.z, joint_speed);
+    computeSpeedCommand(twist.linear.x, twist.angular.z, joint_speeds);
     //  ROS_INFO_STREAM("Output speed [" << twist_msg.linear.x << ", " << twist_msg.angular.z << "]");
     auto end = std::chrono::system_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     ROS_INFO_STREAM("Cmd vel delay: " << elapsed.count() << " ms.");
   }
   if (twist.linear.x == 0 && twist.angular.z == 0) {
-    if (last_twist_zero_) {
-      return;
+    if (!last_twist_zero_) {
+      cmd_vel_pub_.publish(twist);
     }
     last_twist_zero_ = true;
   } else {
+    cmd_vel_pub_.publish(twist);
     last_twist_zero_ = false;
   }
-  cmd_vel_pub_.publish(twist);
+
+  std_msgs::Float64 speed_msg;
+  for (const auto& joint_speed: joint_speeds) {
+    speed_msg.data = joint_speed.second;
+    flipper_cmd_pubs_[joint_speed.first].publish(speed_msg);
+  }
 }
 
 void SpeedController::cmdVelCallback(const geometry_msgs::TwistConstPtr& twist_msg) {
