@@ -15,7 +15,7 @@ SpeedController::SpeedController(const ros::NodeHandle& nh, const ros::NodeHandl
   pnh_(pnh),
   enabled_(true),
   control_rate_(20.0),
-  prediction_horizon_(2.0),
+  prediction_horizon_(2.0), maximum_time_step_(0.25),
   safety_distance_(0.0),
   sample_resolution_(0.05),
   critical_stability_threshold_(0.0),
@@ -78,6 +78,11 @@ bool SpeedController::loadParameters(const ros::NodeHandle& nh) {
   prediction_horizon_ = nh.param("prediction_horizon", prediction_horizon_);
   if (prediction_horizon_ < 0) {
     ROS_ERROR("prediction_horizon must be greater or equal 0.");
+    return false;
+  }
+  maximum_time_step_ = nh.param("maximum_time_step", maximum_time_step_);
+  if (maximum_time_step_ <= 0) {
+    ROS_ERROR("maximum_time_step must be greater 0.");
     return false;
   }
   safety_distance_ = nh.param("safety_distance", safety_distance_);
@@ -277,11 +282,11 @@ std::vector<RobotTerrainState> SpeedController::predictTerrainInteraction(double
 
 
   // Predict along robot trajectory (assumes constant velocity)
-  double abs_linear = std::abs(linear);
-  double prediction_distance = prediction_horizon_ * abs_linear;
-  unsigned int steps = std::floor(prediction_distance / sample_resolution_);
+  double time_step_linear = sample_resolution_ / std::abs(linear);
+  double time_step = std::min(time_step_linear, maximum_time_step_);
+  unsigned int steps = std::floor(prediction_horizon_ / time_step);
   robot_states.reserve(steps);
-  double time_step = sample_resolution_ / abs_linear;
+
   Eigen::Isometry3d robot_delta_motion = computeDiffDriveTransform(linear, angular, time_step);
   for (unsigned int i = 1; i <= steps; ++i) {
     // last result + fk

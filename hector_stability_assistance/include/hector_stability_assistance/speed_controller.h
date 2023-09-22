@@ -68,6 +68,7 @@ private:
   bool enabled_;
   double control_rate_;
   double prediction_horizon_;
+  double maximum_time_step_;
   double safety_distance_;
   double sample_resolution_;
   double critical_stability_threshold_;
