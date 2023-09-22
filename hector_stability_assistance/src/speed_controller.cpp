@@ -220,12 +220,14 @@ void SpeedController::timerCallback(const ros::TimerEvent& /*event*/) {
   if (enabled_) {
     auto start = std::chrono::system_clock::now();
     //  ROS_INFO_STREAM("Input speed [" << twist_msg.linear.x << ", " << twist_msg.angular.z << "]");
-    ROS_INFO_STREAM("--- CMD VEL CALLBACK ---");
     computeSpeedCommand(twist.linear.x, twist.angular.z, joint_speeds);
     //  ROS_INFO_STREAM("Output speed [" << twist_msg.linear.x << ", " << twist_msg.angular.z << "]");
     auto end = std::chrono::system_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    ROS_INFO_STREAM("Cmd vel delay: " << elapsed.count() << " ms.");
+    if (elapsed.count() > 50) {
+      ROS_WARN_STREAM_THROTTLE(5, "Command delay has reached " << elapsed.count() <<
+                                      " ms. Consider reducing the prediction horizon or resolution.");
+    }
   }
   if (twist.linear.x == 0 && twist.angular.z == 0) {
     if (!last_twist_zero_) {
@@ -283,7 +285,7 @@ std::vector<RobotTerrainState> SpeedController::predictTerrainInteraction(double
   if (critical_stability_threshold_ > 0) {
     if (!estimateRobotPose(current_robot_pose, joint_state, current_terrain_state, false)) {
       current_terrain_state.minimum_stability = -1;
-      ROS_WARN_STREAM("Failed to predict support polygon at current pose");
+      ROS_DEBUG_STREAM("Failed to predict support polygon at current pose");
       return {std::move(current_terrain_state)};
     }
   } else {
@@ -313,7 +315,7 @@ std::vector<RobotTerrainState> SpeedController::predictTerrainInteraction(double
     robot_terrain_state.time_delta = time_step * i;
     if (!estimateRobotPose(predicted_pose, extrapolated_joint_positions, robot_terrain_state, true)) {
       robot_terrain_state.minimum_stability = -1;
-      ROS_WARN_STREAM("Failed to predict support polygon at t = " << robot_terrain_state.time_delta);
+      ROS_DEBUG_STREAM("Failed to predict support polygon at t = " << robot_terrain_state.time_delta);
       robot_states.push_back(std::move(robot_terrain_state));
       break;
     }
@@ -330,7 +332,7 @@ std::vector<RobotTerrainState> SpeedController::predictTerrainInteraction(double
 double SpeedController::computeSpeedScaling(double linear, double angular,
                                             const std::vector<RobotTerrainState>& robot_states) {
   if (robot_states.empty()) {
-    ROS_INFO_STREAM("No robot state");
+//    ROS_INFO_STREAM("No robot state");
     return 0.0;
   }
 
@@ -338,7 +340,7 @@ double SpeedController::computeSpeedScaling(double linear, double angular,
   double critical_time_delta = 0.0;
   for (const auto& state: robot_states) {
     if (state.minimum_stability < critical_stability_threshold_) {
-      ROS_INFO_STREAM("Found critical state at t = " << state.time_delta << " (" << state.minimum_stability << " < " << critical_stability_threshold_ << ")");
+      ROS_DEBUG_STREAM("Found critical state at t = " << state.time_delta << " (" << state.minimum_stability << " < " << critical_stability_threshold_ << ")");
       critical = true;
       critical_time_delta = state.time_delta;
       break;
@@ -358,7 +360,7 @@ double SpeedController::computeSpeedScaling(double linear, double angular,
     }
   }
 
-  ROS_INFO_STREAM("speed scaling: " << speed_scaling << ", critical time delta: " << critical_time_delta);
+//  ROS_INFO_STREAM("speed scaling: " << speed_scaling << ", critical time delta: " << critical_time_delta);
 
   std_msgs::Float64 float_msg;
   float_msg.data = speed_scaling;
