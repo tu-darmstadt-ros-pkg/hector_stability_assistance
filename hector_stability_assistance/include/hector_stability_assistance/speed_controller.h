@@ -54,6 +54,7 @@ private:
 
   void publishTerrainInteraction(const std::vector<RobotTerrainState>& robot_states);
   void publishMultiRobotState(const std::vector<RobotTerrainState>& robot_states) const;
+  void publishMultiRobotMarker(const std::vector<RobotTerrainState>& robot_states) const;
   void publishPredictedPath(const std::vector<RobotTerrainState>& robot_states) const;
   void publishSupportPolygon(const std::vector<RobotTerrainState>& robot_states) const;
   std_msgs::ColorRGBA stabilityToColorMsg(double stability) const;
@@ -100,6 +101,7 @@ private:
   std::unordered_map<std::string, ros::Publisher> flipper_cmd_pubs_;
 
   ros::Publisher robot_display_pub_;
+  ros::Publisher robot_marker_pub_;
   ros::Publisher support_polygon_pub_;
   ros::Publisher predicted_path_pub_;
   ros::Publisher speed_scaling_pub_;

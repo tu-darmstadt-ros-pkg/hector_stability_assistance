@@ -53,6 +53,7 @@ bool SpeedController::init() {
   support_polygon_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("support_polygon", 10);
   predicted_path_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("predicted_path", 10);
   robot_display_pub_ = pnh_.advertise<hector_rviz_plugins_msgs::DisplayMultiRobotState>("predicted_robot_states", 10);
+  robot_marker_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("predicted_robot_markers", 10);
   speed_scaling_pub_ = pnh_.advertise<std_msgs::Float64>("speed_scaling", 10);
   cmd_vel_pub_ = pnh_.advertise<geometry_msgs::Twist>("cmd_vel_out", 10);
   enabled_status_pub_ = pnh_.advertise<std_msgs::Bool>("enabled_status", 10, true);
@@ -366,6 +367,7 @@ void SpeedController::computeStabilityMargin(RobotTerrainState& robot_terrain_st
 
 void SpeedController::publishTerrainInteraction(const std::vector<RobotTerrainState>& robot_states) {
   publishMultiRobotState(robot_states);
+  publishMultiRobotMarker(robot_states);
   publishSupportPolygon(robot_states);
   publishPredictedPath(robot_states);
 }
@@ -397,6 +399,34 @@ void SpeedController::publishMultiRobotState(const std::vector<RobotTerrainState
     display_msg.robots.push_back(entry);
   }
   robot_display_pub_.publish(display_msg);
+}
+
+void SpeedController::publishMultiRobotMarker(const std::vector<RobotTerrainState>& robot_states) const {
+  if (robot_marker_pub_.getNumSubscribers() == 0) {
+    return;
+  }
+  visualization_msgs::MarkerArray marker_array;
+  for (unsigned int i = 0; i < robot_states.size(); ++i) {
+    const auto& state = robot_states[i];
+    robot_state_->setVariablePositions(std::map<std::string, double>(state.joint_positions.begin(), state.joint_positions.end()));
+
+    std_msgs::ColorRGBA color = stabilityToColorMsg(state.minimum_stability);
+    std::string ns = "robot_state_" + std::to_string(i);
+    visualization_msgs::MarkerArray marker_array_temp;
+    robot_state_->getRobotMarkers(marker_array_temp, robot_model_->getLinkModelNames(), color, ns, ros::Duration(0));
+    // Transform from base to world frame
+    for (auto& marker: marker_array_temp.markers) {
+      Eigen::Isometry3d marker_pose_base;
+      tf::poseMsgToEigen(marker.pose, marker_pose_base);
+      Eigen::Isometry3d marker_pose_world = state.robot_pose * marker_pose_base;
+      tf::poseEigenToMsg(marker_pose_world, marker.pose);
+      marker.header.frame_id = world_frame_;
+    }
+    marker_array.markers.insert(marker_array.markers.end(), marker_array_temp.markers.begin(), marker_array_temp.markers.end());
+  }
+  visualization::fixIds(marker_array);
+  visualization::deleteAllMarkers(robot_marker_pub_);
+  robot_marker_pub_.publish(marker_array);
 }
 
 void SpeedController::publishSupportPolygon(const std::vector<RobotTerrainState>& robot_states) const {
