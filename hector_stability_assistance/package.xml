@@ -31,6 +31,8 @@
   <!--  <depend>grid_map_ros</depend>-->
   <!--  <depend>grid_map_msgs</depend>-->
 
+  <exec_depend>hector_sensor_proc_launch</exec_depend>
+
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
