@@ -260,12 +260,21 @@ std::vector<RobotTerrainState> SpeedController::predictTerrainInteraction(double
   // Estimate at current robot pose
   RobotTerrainState current_terrain_state;
   current_terrain_state.time_delta = 0.0;
-  if (!estimateRobotPose(current_robot_pose, joint_state, current_terrain_state, false)) {
-    current_terrain_state.minimum_stability = -1;
-    ROS_WARN_STREAM("Failed to predict support polygon at current pose");
-    return {std::move(current_terrain_state)};
+  if (critical_stability_threshold_ > 0) {
+    if (!estimateRobotPose(current_robot_pose, joint_state, current_terrain_state, false)) {
+      current_terrain_state.minimum_stability = -1;
+      ROS_WARN_STREAM("Failed to predict support polygon at current pose");
+      return {std::move(current_terrain_state)};
+    }
+  } else {
+    current_terrain_state.robot_pose = current_robot_pose;
+    current_terrain_state.minimum_stability = 10000.0;
+    current_terrain_state.joint_positions = joint_state;
+    pose_predictor_->robotModel()->updateJointPositions(joint_state);
+    current_terrain_state.center_of_mass = pose_predictor_->robotModel()->centerOfMass();
   }
   robot_states.push_back(std::move(current_terrain_state));
+
 
   // Predict along robot trajectory (assumes constant velocity)
   double abs_linear = std::abs(linear);
