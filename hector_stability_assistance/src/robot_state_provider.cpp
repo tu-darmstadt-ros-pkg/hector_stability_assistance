@@ -60,7 +60,11 @@ std::unordered_map<std::string, double> RobotStateProvider::extrapolateJointPosi
     const std::unordered_map<std::string, double> &joint_speeds, double dt) const {
   std::unordered_map<std::string, double> extrapolated_joint_positions = current_joint_positions;
   for (auto const& joint_speed: joint_speeds) {
-    extrapolated_joint_positions[joint_speed.first] = current_joint_positions.at(joint_speed.first) + joint_speed.second * dt;
+    try {
+      extrapolated_joint_positions[joint_speed.first] = current_joint_positions.at(joint_speed.first) + joint_speed.second * dt;
+    } catch (const std::out_of_range&) {
+      ROS_ERROR_STREAM("Could not find joint " << joint_speed.first << " in robot joint state.");
+    }
   }
   return extrapolated_joint_positions;
 }

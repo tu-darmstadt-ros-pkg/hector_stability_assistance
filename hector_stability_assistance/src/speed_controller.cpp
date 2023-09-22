@@ -27,12 +27,11 @@ SpeedController::SpeedController(const ros::NodeHandle& nh, const ros::NodeHandl
 {}
 
 bool SpeedController::init() {
-  if (!loadParameters(pnh_)) {
+  if (!initRobotModel()) {
     return false;
   }
 
-  // Load moveit and urdf model
-  if (!initRobotModel()) {
+  if (!loadParameters(pnh_)) {
     return false;
   }
 
@@ -110,13 +109,20 @@ bool SpeedController::loadParameters(const ros::NodeHandle& nh) {
 
 bool SpeedController::loadJoints(const ros::NodeHandle& nh) {
   XmlRpc::XmlRpcValue joints;
-  nh.getParam("joints", joints);
+  if (!nh.getParam("joints", joints)) {
+    return true;
+  }
   if (joints.getType() != XmlRpc::XmlRpcValue::TypeStruct) {
     ROS_ERROR_STREAM(nh.getNamespace() << "/joints is not a struct.");
     return false;
   }
+  const std::vector<std::string>& joint_names = robot_model_->getJointModelNames();
   for(XmlRpc::XmlRpcValue::ValueStruct::const_iterator it = joints.begin(); it != joints.end(); ++it) {
     const std::string& joint_name = it->first;
+    if (std::find(joint_names.begin(), joint_names.end(), joint_name) == joint_names.end()) {
+      ROS_ERROR_STREAM("Joint " << joint_name << " is not part of the robot model.");
+      return false;
+    }
     const XmlRpc::XmlRpcValue& joint_dict = it->second;
     if (joint_dict.getType() != XmlRpc::XmlRpcValue::TypeStruct) {
       ROS_ERROR_STREAM(nh.getNamespace() << "/" << joint_name << " is not a struct.");
