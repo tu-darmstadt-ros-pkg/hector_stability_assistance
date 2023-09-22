@@ -45,7 +45,7 @@ private:
   bool estimateRobotPose(const Eigen::Isometry3d& robot_pose,
                          const std::unordered_map<std::string, double>& joint_positions,
                          RobotTerrainState& robot_terrain_state, bool predict_pose);
-  void computeStabilityMargin(RobotTerrainState& robot_terrain_state);
+  void computeStabilityMargin(RobotTerrainState& robot_terrain_state, const Eigen::Vector3d& external_force=Eigen::Vector3d::Zero());
 
   void cmdVelCallback(const geometry_msgs::TwistConstPtr& twist_msg);
   void flipperCmdCallback(const std::string& joint, const std_msgs::Float64ConstPtr& float_msg);
@@ -73,6 +73,7 @@ private:
   double sample_resolution_;
   double critical_stability_threshold_;
   double warn_stability_threshold_;
+  double virtual_inertia_factor_;
 
   std::string world_frame_;
   std::string base_frame_;

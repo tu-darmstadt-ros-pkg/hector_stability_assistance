@@ -15,13 +15,15 @@ SpeedController::SpeedController(const ros::NodeHandle& nh, const ros::NodeHandl
   pnh_(pnh),
   enabled_(true),
   control_rate_(20.0),
-  prediction_horizon_(2.0), maximum_time_step_(0.25),
+  prediction_horizon_(2.0),
+  maximum_time_step_(0.25),
   safety_distance_(0.0),
   sample_resolution_(0.05),
   critical_stability_threshold_(0.0),
   warn_stability_threshold_(1.0),
   last_twist_zero_(false),
-  command_received_(false)
+  command_received_(false),
+  virtual_inertia_factor_(0.0)
 {}
 
 bool SpeedController::init() {
@@ -93,6 +95,11 @@ bool SpeedController::loadParameters(const ros::NodeHandle& nh) {
   sample_resolution_ = nh.param("sample_resolution", sample_resolution_);
   if (sample_resolution_ <= 0) {
     ROS_ERROR("sample_resolution must be greater than 0.");
+    return false;
+  }
+  virtual_inertia_factor_ = nh.param("virtual_inertia_factor", virtual_inertia_factor_);
+  if (virtual_inertia_factor_ < 0) {
+    ROS_ERROR("virtual_inertia_factor must be greater or equal 0.");
     return false;
   }
   critical_stability_threshold_ = nh.param("critical_stability_threshold", critical_stability_threshold_);
@@ -303,6 +310,8 @@ std::vector<RobotTerrainState> SpeedController::predictTerrainInteraction(double
       robot_states.push_back(std::move(robot_terrain_state));
       break;
     }
+    Eigen::Vector3d force = robot_states.back().robot_pose.linear() * Eigen::Vector3d::UnitX() * std::abs(linear) * virtual_inertia_factor_;
+    computeStabilityMargin(robot_terrain_state, force);
     robot_states.push_back(std::move(robot_terrain_state));
   }
 //  for (unsigned int i = 0; i < robot_states.size(); ++i) {
@@ -374,13 +383,14 @@ bool SpeedController::estimateRobotPose(const Eigen::Isometry3d& robot_pose,
   return true;
 }
 
-void SpeedController::computeStabilityMargin(RobotTerrainState& robot_terrain_state) {
+void SpeedController::computeStabilityMargin(RobotTerrainState& robot_terrain_state, const Eigen::Vector3d& external_force) {
   if (robot_terrain_state.support_polygon.contact_hull_points.empty()) {
     return;
   }
   Eigen::Vector3d com = robot_terrain_state.robot_pose * robot_terrain_state.center_of_mass;
   Eigen::Vector3d gravity(0.0, 0.0, -9.81);
-  hector_stability_metrics::non_differentiable::computeForceAngleStabilityMeasure<double>(robot_terrain_state.support_polygon.contact_hull_points, robot_terrain_state.support_polygon.edge_stabilities, com, gravity);
+  Eigen::Vector3d net_force = external_force + gravity;
+  hector_stability_metrics::non_differentiable::computeForceAngleStabilityMeasure<double>(robot_terrain_state.support_polygon.contact_hull_points, robot_terrain_state.support_polygon.edge_stabilities, com, net_force);
   auto min_it = std::min_element(robot_terrain_state.support_polygon.edge_stabilities.begin(), robot_terrain_state.support_polygon.edge_stabilities.end());
   robot_terrain_state.minimum_stability = *min_it;
 }
