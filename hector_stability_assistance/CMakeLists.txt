@@ -41,6 +41,8 @@ catkin_package(
 #  DEPENDS system_lib
 )
 
+catkin_add_env_hooks(50.export.hector_stability_assistance SHELLS bash)
+
 ###########
 ## Build ##
 ###########
