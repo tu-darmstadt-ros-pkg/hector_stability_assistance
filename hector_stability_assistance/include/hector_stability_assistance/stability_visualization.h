@@ -17,6 +17,8 @@
 
 #include <hector_pose_prediction_interface/pose_predictor.h>
 
+#include <hector_stability_assistance/robot_state_provider.h>
+
 namespace hector_stability_assistance {
 
 class StabilityVisualization {
@@ -26,7 +28,6 @@ public:
 private:
   void timerCallback(const ros::TimerEvent&);
 //  void gridMapCallback(const grid_map_msgs::GridMapConstPtr& grid_map);
-  void jointStateCallback(const sensor_msgs::JointStateConstPtr& joint_state_msg);
 
   void update();
 
@@ -35,8 +36,6 @@ private:
                          hector_pose_prediction_interface::ContactInformation<double>& contact_information,
                          bool predict_pose);
   void computeStabilityMargin(const Eigen::Isometry3d& robot_pose, hector_pose_prediction_interface::SupportPolygon<double>& support_polygon);
-
-  bool getRobotPose(Eigen::Isometry3d& robot_pose) const;
 
   void publishCOM() const;
 
@@ -50,9 +49,11 @@ private:
   std::string elevation_layer_name_;
   bool predict_pose_;
 
+  std::string world_frame_;
+  std::string base_frame_;
+
   ros::Timer timer_;
-  ros::Subscriber grid_map_sub_;
-  ros::Subscriber joint_state_sub_;
+//  ros::Subscriber grid_map_sub_;
   ros::Publisher stability_margin_pub_;
   ros::Publisher stability_margins_pub_;
   ros::Publisher traction_pub_;
@@ -68,9 +69,7 @@ private:
 
   hector_pose_prediction_interface::PosePredictor<double>::Ptr pose_predictor_;
   std::shared_ptr<urdf::Model> urdf_;
-
-  std::set<std::string> missing_joint_states_;
-  std::unordered_map<std::string, double> joint_states_;
+  std::shared_ptr<RobotStateProvider> state_provider_;
 };
 
 template <typename T>

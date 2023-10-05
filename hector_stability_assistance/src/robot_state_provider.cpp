@@ -55,6 +55,10 @@ bool RobotStateProvider::jointStateComplete() const {
   return missing_joint_states_.empty();
 }
 
+const std::set<std::string> &RobotStateProvider::getMissingJointStates() const {
+  return missing_joint_states_;
+}
+
 std::unordered_map<std::string, double> RobotStateProvider::extrapolateJointPositions(
     const std::unordered_map<std::string, double> &current_joint_positions,
     const std::unordered_map<std::string, double> &joint_speeds, double dt) const {

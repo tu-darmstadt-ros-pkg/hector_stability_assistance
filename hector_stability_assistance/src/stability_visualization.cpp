@@ -34,14 +34,7 @@ bool StabilityVisualization::init() {
   if (!urdf_->initParam("/robot_description")) {
     return false;
   }
-
-  for (const auto &kv : urdf_->joints_)
-  {
-    if (kv.second->type != urdf::Joint::FIXED && kv.second->type != urdf::Joint::UNKNOWN && !kv.second->mimic) {
-      missing_joint_states_.insert( kv.first );
-      ROS_DEBUG_STREAM("Adding required joint: " << kv.first << " type: " << kv.second->type);
-    }
-  }
+  base_frame_ = urdf_->getRoot()->name;
 
   // Initialize pose predictor
   std::string pose_predictor_name = pnh_.param<std::string>("pose_predictor", "sdf_contact_estimation::SDFContactEstimation");
@@ -51,6 +44,7 @@ bool StabilityVisualization::init() {
     esdf_server_ = std::make_shared<voxblox::EsdfServer>(nh_, esdf_server_pnh);
     sdf_model_ = std::make_shared<sdf_contact_estimation::SdfModel>(pnh_);
     sdf_model_->loadEsdf(esdf_server_->getEsdfMapPtr(), esdf_server_->getEsdfMaxDistance(), false);
+    world_frame_ = esdf_server_->getWorldFrame();
 
     // Create robot model
     ros::NodeHandle pose_predictor_nh(pnh_, "sdf_pose_predictor");
@@ -77,14 +71,22 @@ bool StabilityVisualization::init() {
     return false;
   }
 
+  std::vector<std::string> joint_names;
+  for (const auto &kv : urdf_->joints_)
+  {
+    if (kv.second->type != urdf::Joint::FIXED && kv.second->type != urdf::Joint::UNKNOWN && !kv.second->mimic) {
+      joint_names.push_back( kv.first );
+      ROS_DEBUG_STREAM("Adding required joint: " << kv.first << " type: " << kv.second->type);
+    }
+  }
+  state_provider_ = std::make_shared<RobotStateProvider>(nh_, joint_names, world_frame_, base_frame_);
+
   // Subscriber and Publisher
   stability_margin_pub_ = pnh_.advertise<std_msgs::Float64>("stability_margin", 1);
   stability_margins_pub_ = pnh_.advertise<std_msgs::Float64MultiArray>("stability_margins", 1);
   traction_pub_ = pnh_.advertise<std_msgs::Float64>("traction", 1);
   support_polygon_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("support_polygon", 1);
   com_pub_ = pnh_.advertise<geometry_msgs::PointStamped>("center_of_mass", 1);
-
-  joint_state_sub_ = nh_.subscribe<sensor_msgs::JointState>("/joint_states", 1, &StabilityVisualization::jointStateCallback, this);
 
   timer_ = nh_.createTimer(ros::Duration(1.0/update_frequency_), &StabilityVisualization::timerCallback, this, false);
   return true;
@@ -100,18 +102,18 @@ void StabilityVisualization::timerCallback(const ros::TimerEvent&) {
 
 void StabilityVisualization::update() {
   // Update robot state
-  if (!missing_joint_states_.empty()) {
-    ROS_WARN_STREAM_THROTTLE(1, "Can't update stability estimation: The following joint states are still missing: " << setToString(missing_joint_states_));
+  if (!state_provider_->jointStateComplete()) {
+    ROS_WARN_STREAM_THROTTLE(1, "Can't update stability estimation: The following joint states are still missing: " << setToString(state_provider_->getMissingJointStates()));
     return;
   }
-  pose_predictor_->robotModel()->updateJointPositions(joint_states_);
+  pose_predictor_->robotModel()->updateJointPositions(state_provider_->getJointState());
 
   // Center of mass
   publishCOM();
 
   // Get robot position
   Eigen::Isometry3d robot_pose_eigen;
-  if (!getRobotPose(robot_pose_eigen)) {
+  if (!state_provider_->getRobotPose(robot_pose_eigen)) {
     return;
   }
 
@@ -165,22 +167,6 @@ void StabilityVisualization::update() {
 //  }
 }
 
-void StabilityVisualization::jointStateCallback(const sensor_msgs::JointStateConstPtr& joint_state_msg) {
-  // Mark seen joints
-  if (!missing_joint_states_.empty()) {
-    for (const auto & joint_name : joint_state_msg->name) {
-      auto it = missing_joint_states_.find(joint_name);
-      if (it != missing_joint_states_.end()) {
-        missing_joint_states_.erase(it);
-      }
-    }
-  }
-  // Update state
-  for (unsigned int i = 0; i < joint_state_msg->name.size(); ++i) {
-    joint_states_[joint_state_msg->name[i]] = joint_state_msg->position[i];
-  }
-}
-
 void StabilityVisualization::publishCOM() const
 {
   geometry_msgs::PointStamped point_msg;
@@ -190,21 +176,6 @@ void StabilityVisualization::publishCOM() const
   point_msg.header.stamp = ros::Time::now();
   tf::pointEigenToMsg(pose_predictor_->robotModel()->centerOfMass(), point_msg.point);
   com_pub_.publish(point_msg);
-}
-
-bool StabilityVisualization::getRobotPose(Eigen::Isometry3d& robot_pose) const
-{
-  geometry_msgs::TransformStamped transform_msg;
-  try{
-    transform_msg = tf_buffer_.lookupTransform("world", "base_link",
-                                               ros::Time(0), ros::Duration(1.0)); //TODO remove hardcoded frames
-  }
-  catch (const tf2::TransformException &ex) {
-    ROS_WARN_THROTTLE(1, "%s",ex.what());
-    return false;
-  }
-  tf::transformMsgToEigen(transform_msg.transform, robot_pose);
-  return true;
 }
 
 bool StabilityVisualization::estimateRobotPose(Eigen::Isometry3d& robot_pose,
