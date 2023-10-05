@@ -194,7 +194,7 @@ bool StabilityVisualization::estimateRobotPose(Eigen::Isometry3d& robot_pose,
     success = !std::isnan(pose_predictor_->predictPoseAndContactInformation(robot_pose_type, support_polygon, contact_information));
   }
   if (!success || support_polygon.contact_hull_points.empty()) {
-    ROS_WARN_STREAM("Failed to estimate support polygon.");
+//    ROS_WARN_STREAM("Failed to estimate support polygon.");
     return false;
   }
   robot_pose = robot_pose_type.asTransform();
