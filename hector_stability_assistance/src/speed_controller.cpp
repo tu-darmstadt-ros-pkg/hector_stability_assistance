@@ -530,6 +530,8 @@ void SpeedController::publishPredictedPath(const std::vector<RobotTerrainState>&
   sphere_list_marker.scale.x = 0.05;
   sphere_list_marker.scale.y = 0.05;
   sphere_list_marker.scale.z = 0.05;
+  sphere_list_marker.pose.orientation.w = 1.0;
+
 
   for (const auto & robot_state : robot_states) {
     geometry_msgs::Point point;
