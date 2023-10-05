@@ -19,9 +19,8 @@
 namespace hector_stability_assistance {
 
 StabilityVisualization::StabilityVisualization(const ros::NodeHandle &nh, const ros::NodeHandle &pnh)
-: nh_(nh), pnh_(pnh), tf_listener_(tf_buffer_), update_frequency_(10.0), prediction_time_delta_(0.5), predict_pose_(false) {
-  latest_twist_.linear.x = latest_twist_.linear.y = latest_twist_.linear.z = 0;
-  latest_twist_.angular.x = latest_twist_.angular.y = latest_twist_.angular.z = 0;
+: nh_(nh), pnh_(pnh), tf_listener_(tf_buffer_), update_frequency_(10.0), predict_pose_(false) {
+
 }
 
 bool StabilityVisualization::init() {
@@ -29,10 +28,10 @@ bool StabilityVisualization::init() {
   update_frequency_ = pnh_.param("update_frequency", 10.0);
   elevation_layer_name_ = pnh_.param("elevation_layer_name", std::string("elevation"));
   predict_pose_ = pnh_.param("predict_pose", false);
-  prediction_time_delta_ = pnh_.param("prediction_time_delta", 0.5);
 
   // Load urdf model
-  if (!initializeRobotModel()) {
+  urdf_ = std::make_shared<urdf::Model>();
+  if (!urdf_->initParam("/robot_description")) {
     return false;
   }
 
@@ -85,15 +84,7 @@ bool StabilityVisualization::init() {
   support_polygon_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("support_polygon", 1);
   com_pub_ = pnh_.advertise<geometry_msgs::PointStamped>("center_of_mass", 1);
 
-  ros::NodeHandle prediction_nh(pnh_, "prediction");
-  predicted_stability_margin_pub_ = prediction_nh.advertise<std_msgs::Float64>("stability_margin", 1);
-  predicted_stability_margins_pub_ = prediction_nh.advertise<std_msgs::Float64MultiArray>("stability_margins", 1);
-  predicted_traction_pub_ = prediction_nh.advertise<std_msgs::Float64>("traction", 1);
-  predicted_support_polygon_pub_ = prediction_nh.advertise<visualization_msgs::MarkerArray>("support_polygon", 1);
-  predicted_robot_model_pub_ = prediction_nh.advertise<hector_rviz_plugins_msgs::DisplayMultiRobotState>("predicted_robot_state", 1);
-
   joint_state_sub_ = nh_.subscribe<sensor_msgs::JointState>("/joint_states", 1, &StabilityVisualization::jointStateCallback, this);
-  cmd_vel_sub_ = nh_.subscribe<geometry_msgs::Twist>("/cmd_vel", 1, &StabilityVisualization::cmdVelCallback, this);
 
   timer_ = nh_.createTimer(ros::Duration(1.0/update_frequency_), &StabilityVisualization::timerCallback, this, false);
   return true;
@@ -143,35 +134,6 @@ void StabilityVisualization::update() {
   // Traction
   // TODO
 
-
-
-  // Predict future poses based on commanded velocity
-  Eigen::Isometry3d pose_delta = computeDiffDriveTransform(latest_twist_.linear.x, latest_twist_.angular.z, prediction_time_delta_);
-  double distance_travelled = std::abs(latest_twist_.linear.x) * prediction_time_delta_;
-  double theta = std::abs(latest_twist_.angular.z) * prediction_time_delta_;
-  Eigen::Isometry3d predicted_pose = robot_pose_eigen * pose_delta;
-
-  // Evaluate future pose
-  hector_pose_prediction_interface::SupportPolygon<double> predicted_support_polygon;
-  hector_pose_prediction_interface::ContactInformation<double> predicted_contact_information;
-  bool predict_pose = distance_travelled > 0.1 || theta > 0.15;
-  if (!estimateRobotPose(predicted_pose, predicted_support_polygon, predicted_contact_information, predict_pose)) {
-    return;
-  }
-  // Stability
-  computeStabilityMargin(predicted_pose, predicted_support_polygon);
-  visualization::publishEdgeStabilities(predicted_support_polygon, predicted_stability_margins_pub_);
-  visualization::publishMinStability(predicted_support_polygon, predicted_stability_margin_pub_);
-
-  // Support polygon
-  visualization::publishSupportPolygon(predicted_support_polygon, predicted_contact_information, predicted_support_polygon_pub_);
-
-  publishRobotModel(predicted_pose, joint_states_, predicted_robot_model_pub_, Eigen::Vector4f(0.5f, 0.8f, 0.2f, 1.0f));
-
-  // Traction
-  // TODO
-
-
   /*
    * DEBUG
    */
@@ -218,6 +180,7 @@ void StabilityVisualization::jointStateCallback(const sensor_msgs::JointStateCon
     joint_states_[joint_state_msg->name[i]] = joint_state_msg->position[i];
   }
 }
+
 void StabilityVisualization::publishCOM() const
 {
   geometry_msgs::PointStamped point_msg;
@@ -244,32 +207,6 @@ bool StabilityVisualization::getRobotPose(Eigen::Isometry3d& robot_pose) const
   return true;
 }
 
-Eigen::Isometry3d StabilityVisualization::computeDiffDriveTransform(double linear_speed, double angular_speed, double time_delta) const
-{
-  double x;
-  double y;
-  double theta = angular_speed * time_delta;
-  if (angular_speed < 1e-6) {
-    x = linear_speed * time_delta;
-    y = 0;
-  } else {
-    x = linear_speed / angular_speed * std::sin(theta);
-    y = linear_speed / angular_speed * (1 - std::cos(theta));
-  }
-
-  Eigen::Isometry3d transform(Eigen::AngleAxisd(theta, Eigen::Vector3d::UnitZ()));
-  transform.translation().x() = x;
-  transform.translation().y() = y;
-  transform.translation().z() = 0;
-
-  return transform;
-}
-
-void StabilityVisualization::cmdVelCallback(const geometry_msgs::TwistConstPtr& twist_msg)
-{
-  latest_twist_ = *twist_msg;
-}
-
 bool StabilityVisualization::estimateRobotPose(Eigen::Isometry3d& robot_pose,
                                                hector_pose_prediction_interface::SupportPolygon<double>& support_polygon,
                                                hector_pose_prediction_interface::ContactInformation<double>& contact_information,
@@ -289,66 +226,12 @@ bool StabilityVisualization::estimateRobotPose(Eigen::Isometry3d& robot_pose,
   robot_pose = robot_pose_type.asTransform();
   return true;
 }
+
 void StabilityVisualization::computeStabilityMargin(const Eigen::Isometry3d& robot_pose, hector_pose_prediction_interface::SupportPolygon<double>& support_polygon)
 {
   Eigen::Vector3d com = robot_pose * pose_predictor_->robotModel()->centerOfMass();
   Eigen::Vector3d gravity(0.0, 0.0, -9.81);
   hector_stability_metrics::non_differentiable::computeForceAngleStabilityMeasure<double>(support_polygon.contact_hull_points, support_polygon.edge_stabilities, com, gravity);
-}
-
-
-
-
-void StabilityVisualization::publishRobotModel(const Eigen::Isometry3d& robot_pose,
-                                               const std::unordered_map<std::string, double>& joint_state,
-                                               ros::Publisher& publisher, Eigen::Vector4f color) const
-{
-  hector_rviz_plugins_msgs::MultiRobotStateEntry entry;
-  entry.id = "robot_model";
-  tf::poseEigenToMsg(robot_pose, entry.pose.pose);
-  robot_state_->setVariablePositions(std::map<std::string, double>(joint_state.begin(), joint_state.end()));
-  moveit::core::robotStateToRobotStateMsg(*robot_state_, entry.robot_state.state, false);
-
-  // Add color
-  if (!color.array().isNaN().any()) {
-    std_msgs::ColorRGBA color_msg;
-    color_msg.r = color(0);
-    color_msg.g = color(1);
-    color_msg.b = color(2);
-    color_msg.a = color(3);
-    for (const auto& link: robot_model_->getLinkModelNames()) {
-      moveit_msgs::ObjectColor object_color;
-      object_color.color = color_msg;
-      object_color.id = link;
-      entry.robot_state.highlight_links.push_back(object_color);
-    }
-  }
-
-
-  hector_rviz_plugins_msgs::DisplayMultiRobotState display_msg;
-  display_msg.header.frame_id = "world";
-  display_msg.robots.push_back(entry);
-  predicted_robot_model_pub_.publish(display_msg);
-}
-bool StabilityVisualization::initializeRobotModel()
-{
-  if (!robot_model_) {
-    urdf_ = std::make_shared<urdf::Model>();
-    if (!urdf_->initParam("/robot_description")) {
-      return false;
-    }
-    auto srdf = std::make_shared<srdf::Model>();
-
-    try {
-      robot_model_ = std::make_shared<moveit::core::RobotModel>(urdf_, srdf);
-      robot_state_ = std::make_shared<moveit::core::RobotState>(robot_model_);
-    } catch (std::exception& e) {
-      ROS_ERROR_STREAM( "Failed to initialize robot model: " << e.what());
-      return false;
-    }
-    robot_state_->setToDefaultValues();
-  }
-  return true;
 }
 
 }
