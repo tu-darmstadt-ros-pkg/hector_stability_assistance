@@ -101,6 +101,9 @@ void StabilityVisualization::timerCallback(const ros::TimerEvent&) {
 }
 
 void StabilityVisualization::update() {
+  if (!subscriberFound()) {
+    return;
+  }
   // Update robot state
   if (!state_provider_->jointStateComplete()) {
     ROS_WARN_STREAM_THROTTLE(1, "Can't update stability estimation: The following joint states are still missing: " << setToString(state_provider_->getMissingJointStates()));
@@ -203,6 +206,13 @@ void StabilityVisualization::computeStabilityMargin(const Eigen::Isometry3d& rob
   Eigen::Vector3d com = robot_pose * pose_predictor_->robotModel()->centerOfMass();
   Eigen::Vector3d gravity(0.0, 0.0, -9.81);
   hector_stability_metrics::non_differentiable::computeForceAngleStabilityMeasure<double>(support_polygon.contact_hull_points, support_polygon.edge_stabilities, com, gravity);
+}
+bool StabilityVisualization::subscriberFound() const {
+  return stability_margin_pub_.getNumSubscribers() > 0 ||
+         stability_margins_pub_.getNumSubscribers() > 0 ||
+         traction_pub_.getNumSubscribers() > 0 ||
+         support_polygon_pub_.getNumSubscribers() > 0 ||
+         com_pub_.getNumSubscribers() > 0;
 }
 
 }

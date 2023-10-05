@@ -39,6 +39,8 @@ private:
 
   void publishCOM() const;
 
+  bool subscriberFound() const;
+
   ros::NodeHandle nh_;
   ros::NodeHandle pnh_;
   tf2_ros::Buffer tf_buffer_;
@@ -59,8 +61,8 @@ private:
   ros::Publisher traction_pub_;
   ros::Publisher support_polygon_pub_;
   ros::Publisher com_pub_;
-  ros::Publisher robot_heightmap_pub_;
-  ros::Publisher submap_pub_;
+//  ros::Publisher robot_heightmap_pub_;
+//  ros::Publisher submap_pub_;
 
   std::shared_ptr<voxblox::EsdfServer> esdf_server_;
   std::shared_ptr<sdf_contact_estimation::SdfModel> sdf_model_;
