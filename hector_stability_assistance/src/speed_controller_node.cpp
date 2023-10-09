@@ -3,7 +3,7 @@
 #include <hector_stability_assistance/speed_controller.h>
 
 int main(int argc, char** argv) {
-  ros::init(argc, argv, "stability_visualization node");
+  ros::init(argc, argv, "speed_controller_node");
 
   ros::NodeHandle nh;
   ros::NodeHandle pnh("~");

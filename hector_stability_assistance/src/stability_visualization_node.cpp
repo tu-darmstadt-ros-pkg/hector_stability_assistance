@@ -3,7 +3,7 @@
 #include <hector_stability_assistance/stability_visualization.h>
 
 int main(int argc, char** argv) {
-  ros::init(argc, argv, "stability_visualization node");
+  ros::init(argc, argv, "stability_visualization_node");
 
   ros::NodeHandle nh;
   ros::NodeHandle pnh("~");
