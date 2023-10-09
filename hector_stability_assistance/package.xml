@@ -26,6 +26,7 @@
   <depend>voxblox_ros</depend>
   <depend>sdf_contact_estimation</depend>
   <depend>moveit_core</depend>
+  <depend>whole_body_posture_optimization</depend>
   <!--  <depend>hector_heightmap_pose_prediction</depend>-->
   <!--  <depend>hector_world_heightmap_ros</depend>-->
   <!--  <depend>grid_map_ros</depend>-->

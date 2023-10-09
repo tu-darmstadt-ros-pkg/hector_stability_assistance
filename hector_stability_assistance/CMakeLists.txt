@@ -18,6 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
   voxblox_ros
   sdf_contact_estimation
   moveit_core
+  whole_body_posture_optimization
 )
 
 catkin_package(
@@ -38,6 +39,7 @@ catkin_package(
    voxblox_ros
    sdf_contact_estimation
    moveit_core
+   whole_body_posture_optimization
 #  DEPENDS system_lib
 )
 
@@ -54,20 +56,22 @@ include_directories(
 
 ## Declare a C++ library
 add_library(${PROJECT_NAME}
+  # Headers
   include/${PROJECT_NAME}/stability_visualization.h
 #  include/${PROJECT_NAME}/local_grid_map.h
 #  include/${PROJECT_NAME}/sub_map.h
   include/${PROJECT_NAME}/visualization.h
   include/${PROJECT_NAME}/speed_controller.h
   include/${PROJECT_NAME}/robot_state_provider.h
-
+  include/${PROJECT_NAME}/whole_body_posture_assistance.h
+  # Sources
   src/stability_visualization.cpp
 #  src/local_grid_map.cpp
 #  src/sub_map.cpp
   src/visualization.cpp
   src/speed_controller.cpp
   src/robot_state_provider.cpp
-
+  src/whole_body_posture_assistance.cpp
 )
 add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
@@ -80,6 +84,10 @@ add_executable(speed_controller_node src/speed_controller_node.cpp)
 add_dependencies(speed_controller_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(speed_controller_node ${PROJECT_NAME})
 
+add_executable(whole_body_posture_assistance_node src/whole_body_posture_assistance_node.cpp)
+add_dependencies(whole_body_posture_assistance_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(whole_body_posture_assistance_node ${PROJECT_NAME})
+
 #############
 ## Install ##
 #############
@@ -90,7 +98,7 @@ install(DIRECTORY
    DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
  )
 
-install(TARGETS ${PROJECT_NAME} stability_visualization_node speed_controller_node
+install(TARGETS ${PROJECT_NAME} stability_visualization_node speed_controller_node whole_body_posture_assistance_node
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
