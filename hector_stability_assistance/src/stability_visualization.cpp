@@ -106,7 +106,7 @@ void StabilityVisualization::update() {
   }
   // Update robot state
   if (!state_provider_->jointStateComplete()) {
-    ROS_WARN_STREAM_THROTTLE(1, "Can't update stability estimation: The following joint states are still missing: " << setToString(state_provider_->getMissingJointStates()));
+    ROS_WARN_STREAM_THROTTLE(1, "Can't update stability estimation: The following joint states are still missing: " << visualization::setToString(state_provider_->getMissingJointStates()));
     return;
   }
   pose_predictor_->robotModel()->updateJointPositions(state_provider_->getJointState());

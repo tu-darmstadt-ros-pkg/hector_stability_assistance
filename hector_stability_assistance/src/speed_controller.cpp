@@ -273,7 +273,9 @@ std::vector<RobotTerrainState> SpeedController::predictTerrainInteraction(double
   if (!state_provider_->getRobotPose(current_robot_pose)) {
     return {};
   }
+  // Update robot state
   if (!state_provider_->jointStateComplete()) {
+    ROS_WARN_STREAM_THROTTLE(1, "Can't update stability estimation: The following joint states are still missing: " << visualization::setToString(state_provider_->getMissingJointStates()));
     return {};
   }
   const std::unordered_map<std::string, double>& joint_state = state_provider_->getJointState();

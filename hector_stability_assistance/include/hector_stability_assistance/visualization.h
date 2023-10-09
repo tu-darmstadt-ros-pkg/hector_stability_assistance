@@ -21,6 +21,17 @@ void publishSupportPolygon(const hector_pose_prediction_interface::SupportPolygo
                            const hector_pose_prediction_interface::ContactInformation<double>& contact_information,
                            ros::Publisher& publisher);
 
+template <typename T>
+std::string setToString(const std::set<T>& set) {
+  std::stringstream ss;
+  ss << "[";
+  for (auto entry: set) {
+    ss << entry << ",";
+  }
+  ss << "]";
+  return ss.str();
+}
+
 }
 }
 

@@ -74,17 +74,6 @@ private:
   std::shared_ptr<RobotStateProvider> state_provider_;
 };
 
-template <typename T>
-std::string setToString(const std::set<T>& set) {
-  std::stringstream ss;
-  ss << "[";
-  for (auto entry: set) {
-    ss << entry << ",";
-  }
-  ss << "]";
-  return ss.str();
-}
-
 }
 
 #endif
