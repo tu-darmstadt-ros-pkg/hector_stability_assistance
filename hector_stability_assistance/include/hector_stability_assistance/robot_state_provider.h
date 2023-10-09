@@ -7,6 +7,7 @@
 #include <tf2_ros/transform_listener.h>
 #include <unordered_map>
 #include <Eigen/Eigen>
+#include <moveit/robot_state/robot_state.h>
 
 namespace hector_stability_assistance {
 
@@ -18,6 +19,7 @@ public:
   bool jointStateComplete() const;
   const std::set<std::string>& getMissingJointStates() const;
   const std::unordered_map<std::string, double>& getJointState() const;
+  bool getRobotState(moveit::core::RobotState& robot_state) const;
 
   std::unordered_map<std::string, double> extrapolateJointPositions(const std::unordered_map<std::string, double>& current_joint_positions, const std::unordered_map<std::string, double>& joint_speeds, double dt) const;
 private:

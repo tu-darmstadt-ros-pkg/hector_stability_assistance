@@ -72,5 +72,19 @@ std::unordered_map<std::string, double> RobotStateProvider::extrapolateJointPosi
   }
   return extrapolated_joint_positions;
 }
+bool RobotStateProvider::getRobotState(moveit::core::RobotState &robot_state) const {
+  // Update robot state
+  if (!jointStateComplete()) {
+    return false;
+  }
+  const std::unordered_map<std::string, double>& joint_positions = getJointState();
+  Eigen::Isometry3d current_robot_pose;
+  if (!getRobotPose(current_robot_pose)) {
+    return false;
+  }
+  robot_state.setJointPositions("world_virtual_joint", current_robot_pose);
+  robot_state.setVariablePositions(std::map<std::string, double>(joint_positions.begin(), joint_positions.end()));
+  return true;
+}
 
 }  // namespace hector_stability_assistance
