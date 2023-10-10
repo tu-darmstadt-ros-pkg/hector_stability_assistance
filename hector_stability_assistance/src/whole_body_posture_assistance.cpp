@@ -1,8 +1,10 @@
 #include <hector_stability_assistance/whole_body_posture_assistance.h>
 
 #include <sdf_contact_estimation/sdf_contact_estimation.h>
-#include <hector_stability_assistance/visualization.h>
 #include <moveit/robot_state/conversions.h>
+
+#include <hector_stability_assistance/visualization.h>
+#include <hector_stability_assistance/util.h>
 
 namespace hector_stability_assistance {
 
@@ -127,6 +129,7 @@ void WholeBodyPostureAssistance::update() {
   }
   if (!mapReceived()) {
     ROS_WARN_STREAM_THROTTLE(1, "No map received yet");
+    return;
   }
   if (!last_result_) {
     auto current_state = std::make_shared<moveit::core::RobotState>(robot_model_);
@@ -143,7 +146,9 @@ void WholeBodyPostureAssistance::update() {
   if (!state_provider_->getRobotPose(current_robot_pose)) {
     return;
   }
-  auto result = optimizer_->findOptimalPosture(current_robot_pose, optimizer_->getDefaultJointPositions(), last_result_->result_state);
+  Eigen::Isometry3d pose_2d = util::pose3Dto2D(current_robot_pose);
+
+  auto result = optimizer_->findOptimalPosture(pose_2d, optimizer_->getDefaultJointPositions(), last_result_->result_state);
   publishRobotStateDisplay(result.result_state);
 }
 

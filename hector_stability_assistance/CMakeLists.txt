@@ -64,6 +64,8 @@ add_library(${PROJECT_NAME}
   include/${PROJECT_NAME}/speed_controller.h
   include/${PROJECT_NAME}/robot_state_provider.h
   include/${PROJECT_NAME}/whole_body_posture_assistance.h
+  include/${PROJECT_NAME}/util.h
+
   # Sources
   src/stability_visualization.cpp
 #  src/local_grid_map.cpp
@@ -72,6 +74,7 @@ add_library(${PROJECT_NAME}
   src/speed_controller.cpp
   src/robot_state_provider.cpp
   src/whole_body_posture_assistance.cpp
+  src/util.cpp
 )
 add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
