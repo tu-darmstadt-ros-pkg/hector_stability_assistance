@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+
+<launch>
+  <node pkg="hector_stability_assistance" type="whole_body_posture_assistance_node" name="whole_body_posture_assistance" output="screen" respawn="true">
+    <param name="enabled" value="true"/>
+    <param name="control_rate" value="1.0"/>
+
+    <!-- sdf contact estimation lib parameters -->
+    <param name="pose_predictor" value="sdf_contact_estimation::SDFContactEstimation"/>
+    <rosparam file="$(find sdf_contact_estimation)/config/optimization.yaml" command="load" ns="sdf_pose_predictor"/>
+    <rosparam file="$(find sdf_contact_estimation)/config/asterix_shape_config.yaml" command="load" ns="sdf_pose_predictor/shape_model" />
+    <param name="sdf_pose_predictor/debug" value="false"/>
+
+    <!-- esdf server parameters -->
+    <rosparam file="$(find hector_sensor_proc_launch)/config/voxblox_common_config.yaml" command="load" ns="esdf_server"/>
+    <param name="esdf_server/update_mesh_every_n_sec" value="0.0"/>
+    <remap from="~/esdf_server/esdf_map_in" to="/esdf_server/esdf_map_out" />
+
+    <!-- posture optimization lib parameters -->
+    <rosparam file="$(find whole_body_posture_optimization)/config/opt_asterix.yaml" command="load" />
+  </node>
+</launch>
