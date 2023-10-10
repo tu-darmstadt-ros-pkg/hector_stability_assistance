@@ -72,6 +72,7 @@ std::unordered_map<std::string, double> RobotStateProvider::extrapolateJointPosi
   }
   return extrapolated_joint_positions;
 }
+
 bool RobotStateProvider::getRobotState(moveit::core::RobotState &robot_state) const {
   // Update robot state
   if (!jointStateComplete()) {
@@ -82,7 +83,10 @@ bool RobotStateProvider::getRobotState(moveit::core::RobotState &robot_state) co
   if (!getRobotPose(current_robot_pose)) {
     return false;
   }
-  robot_state.setJointPositions("world_virtual_joint", current_robot_pose);
+  const std::string world_virtual_joint = "world_virtual_joint";
+  if (robot_state.getRobotModel()->hasJointModel(world_virtual_joint)) {
+    robot_state.setJointPositions(world_virtual_joint, current_robot_pose);
+  }
   robot_state.setVariablePositions(std::map<std::string, double>(joint_positions.begin(), joint_positions.end()));
   return true;
 }

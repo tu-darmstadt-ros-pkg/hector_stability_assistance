@@ -38,8 +38,6 @@ bool WholeBodyPostureAssistance::init() {
 
   timer_ = nh_.createTimer(ros::Duration(1/control_rate_), &WholeBodyPostureAssistance::timerCallback, this, false, true);
 
-  // TODO: Set last_result_ to current state
-
   return true;
 }
 
@@ -61,6 +59,10 @@ bool WholeBodyPostureAssistance::initRobotModel() {
     }
     base_frame_ = urdf_->getRoot()->name;
     auto srdf = std::make_shared<srdf::Model>();
+    std::string semantic_description;
+    if (pnh_.getParam("/robot_description_semantic", semantic_description)) {
+      srdf->initString(*urdf_, semantic_description);
+    }
 
     try {
       robot_model_ = std::make_shared<moveit::core::RobotModel>(urdf_, srdf);
