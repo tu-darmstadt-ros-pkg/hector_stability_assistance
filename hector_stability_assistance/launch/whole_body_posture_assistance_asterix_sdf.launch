@@ -1,9 +1,11 @@
 <?xml version="1.0"?>
 
 <launch>
-  <node pkg="hector_stability_assistance" type="whole_body_posture_assistance_node" name="whole_body_posture_assistance" output="screen" respawn="true">
+  <arg name="node_name" value="whole_body_posture_assistance"/>
+  <node pkg="hector_stability_assistance" type="whole_body_posture_assistance_node" name="$(arg node_name)" output="screen" respawn="true">
     <param name="enabled" value="true"/>
     <param name="control_rate" value="1.0"/>
+    <param name="move_group" value="flipper_group"/>
 
     <!-- sdf contact estimation lib parameters -->
     <param name="pose_predictor" value="sdf_contact_estimation::SDFContactEstimation"/>
@@ -19,4 +21,19 @@
     <!-- posture optimization lib parameters -->
     <rosparam file="$(find whole_body_posture_optimization)/config/opt_asterix.yaml" command="load" />
   </node>
+
+   <!-- moveit_cpp parameters -->
+  <rosparam ns="$(arg node_name)" file="$(find whole_body_planning_server)/config/moveit_cpp.yaml" command="load"/>
+
+  <!-- moveit parameters -->
+  <group ns="robot_description_planning">
+    <rosparam command="load" file="$(find asterix_moveit_config)/config/joint_limits.yaml"/>
+<!--     <rosparam command="load" file="$(find asterix_moveit_config)/config/joint_limits_world.yaml"/> -->
+  </group>
+
+  <!-- Planning Pipeline -->
+  <include ns="$(arg node_name)/ompl" file="$(find asterix_moveit_config)/launch/ompl_planning_pipeline.launch.xml"/>
+
+  <!-- Trajectory execution  -->
+  <include ns="$(arg node_name)" file="$(find asterix_moveit_config)/launch/trajectory_execution.launch.xml"/>
 </launch>

@@ -34,6 +34,8 @@ bool WholeBodyPostureAssistance::init() {
   }
   state_provider_ = std::make_shared<RobotStateProvider>(nh_, joint_names, world_frame_, base_frame_);
 
+  moveit_cpp_ptr_ = std::make_shared<moveit_cpp::MoveItCpp>(pnh_);
+
   // Publishers & Subscribers
   robot_display_pub_ = pnh_.advertise<moveit_msgs::DisplayRobotState>("optimized_robot_state", 10);
   robot_marker_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("optimized_robot_state_marker", 10);
@@ -48,6 +50,10 @@ bool WholeBodyPostureAssistance::loadParameters(const ros::NodeHandle &nh) {
   control_rate_ = nh.param("control_rate", control_rate_);
   if (control_rate_ <= 0) {
     ROS_ERROR("control_rate must be greater 0.");
+    return false;
+  }
+  if (!nh.getParam("move_group", move_group_)) {
+    ROS_ERROR_STREAM("Required parameter '" << nh.getNamespace() << "/move_group is missing");
     return false;
   }
   return true;
@@ -149,7 +155,19 @@ void WholeBodyPostureAssistance::update() {
   Eigen::Isometry3d pose_2d = util::pose3Dto2D(current_robot_pose);
 
   auto result = optimizer_->findOptimalPosture(pose_2d, optimizer_->getDefaultJointPositions(), last_result_->result_state);
+  last_result_ = std::make_shared<whole_body_posture_optimization::PostureOptimizationResult>(result);
   publishRobotStateDisplay(result.result_state);
+
+  // Execute trajectory
+  if (result.success && result.result_state) {
+    moveit::core::RobotState current_state(robot_model_);
+    if (!state_provider_->getRobotState(current_state)) {
+      ROS_ERROR_STREAM("Failed to retrieve current state");
+      return;
+    }
+    robot_trajectory::RobotTrajectory trajectory = createTrajectory(current_state, *result.result_state);
+    executeJointTrajectory(trajectory, ros::Time::now());
+  }
 }
 
 bool WholeBodyPostureAssistance::mapReceived() const {
@@ -160,6 +178,29 @@ void WholeBodyPostureAssistance::publishRobotStateDisplay(const moveit::core::Ro
   moveit_msgs::DisplayRobotState robot_state_msg;
   moveit::core::robotStateToRobotStateMsg(*robot_state, robot_state_msg.state);
   robot_display_pub_.publish(robot_state_msg);
+}
+
+bool WholeBodyPostureAssistance::executeJointTrajectory(const robot_trajectory::RobotTrajectory &trajectory, ros::Time start_time) {
+  // Check if there are controllers that can handle the execution
+  if (!moveit_cpp_ptr_->getTrajectoryExecutionManager()->ensureActiveControllersForGroup(trajectory.getGroupName())) {
+    ROS_ERROR("Execution failed! No active controllers configured for group '%s'", trajectory.getGroupName().c_str());
+    return false;
+  }
+
+  // Execute trajectory
+  moveit_msgs::RobotTrajectory robot_trajectory_msg;
+  trajectory.getRobotTrajectoryMsg(robot_trajectory_msg);
+  robot_trajectory_msg.joint_trajectory.header.stamp = start_time;
+  return moveit_cpp_ptr_->getTrajectoryExecutionManager()->pushAndExecute(robot_trajectory_msg);
+}
+
+robot_trajectory::RobotTrajectory WholeBodyPostureAssistance::createTrajectory(const moveit::core::RobotState &start_state,
+                                                  const moveit::core::RobotState &end_state) const
+{
+  robot_trajectory::RobotTrajectory trajectory(robot_model_, move_group_);
+  trajectory.addSuffixWayPoint(start_state, 0.0);
+  trajectory.addSuffixWayPoint(end_state, 1.0);
+  return trajectory;
 }
 
 }  // namespace hector_stability_assistance

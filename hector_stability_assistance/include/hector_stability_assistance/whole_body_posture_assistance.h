@@ -6,6 +6,7 @@
 #include <urdf/model.h>
 #include <moveit/robot_model/robot_model.h>
 #include <moveit/robot_state/robot_state.h>
+#include <moveit/moveit_cpp/moveit_cpp.h>
 #include <voxblox_ros/esdf_server.h>
 #include <whole_body_posture_optimization/whole_body_posture_optimization.h>
 
@@ -28,11 +29,15 @@ private:
 
   void timerCallback(const ros::TimerEvent& event);
 
+  robot_trajectory::RobotTrajectory createTrajectory(const moveit::core::RobotState& start_state, const moveit::core::RobotState& end_state) const;
+  bool executeJointTrajectory(const robot_trajectory::RobotTrajectory& trajectory, ros::Time start_time=ros::Time());
+
   void publishRobotStateDisplay(const robot_state::RobotStatePtr& robot_state);
 
   // Parameters
   double control_rate_;
   bool enabled_;
+  std::string move_group_;
 
   std::string base_frame_;
   std::string world_frame_;
@@ -49,6 +54,8 @@ private:
   std::shared_ptr<voxblox::EsdfServer> esdf_server_;
   std::shared_ptr<whole_body_posture_optimization::WholeBodyPostureOptimization> optimizer_;
   std::shared_ptr<whole_body_posture_optimization::PostureOptimizationResult> last_result_;
+
+  std::shared_ptr<moveit_cpp::MoveItCpp> moveit_cpp_ptr_;
 
   ros::Publisher robot_display_pub_;
   ros::Publisher robot_marker_pub_;
