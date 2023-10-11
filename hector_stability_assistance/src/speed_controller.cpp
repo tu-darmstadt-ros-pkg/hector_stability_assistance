@@ -1,6 +1,7 @@
 #include <hector_stability_assistance/speed_controller.h>
 
 #include <hector_stability_assistance/visualization.h>
+#include <hector_stability_assistance/util.h>
 
 #include <sdf_contact_estimation/sdf/sdf_model.h>
 #include <sdf_contact_estimation/sdf_contact_estimation.h>
@@ -26,7 +27,10 @@ SpeedController::SpeedController(const ros::NodeHandle& nh, const ros::NodeHandl
   last_twist_zero_(false),
   command_received_(false),
   virtual_inertia_factor_(0.0)
-{}
+{
+  latest_twist_.linear.x = 0.0;
+  latest_twist_.angular.z = 0.0;
+}
 
 bool SpeedController::init() {
   if (!initRobotModel()) {
@@ -306,7 +310,7 @@ std::vector<RobotTerrainState> SpeedController::predictTerrainInteraction(double
   unsigned int steps = std::floor(prediction_horizon_ / time_step);
   robot_states.reserve(steps);
 
-  Eigen::Isometry3d robot_delta_motion = computeDiffDriveTransform(linear, angular, time_step);
+  Eigen::Isometry3d robot_delta_motion = util::computeDiffDriveTransform(linear, angular, time_step);
   for (unsigned int i = 1; i <= steps; ++i) {
     // last result + fk
     Eigen::Isometry3d predicted_pose = robot_states.back().robot_pose * robot_delta_motion;
@@ -486,26 +490,6 @@ void SpeedController::publishSupportPolygon(const std::vector<RobotTerrainState>
   support_polygon_pub_.publish(support_polygon_marker_array);
 }
 
-Eigen::Isometry3d SpeedController::computeDiffDriveTransform(double linear_speed, double angular_speed, double time_delta) const
-{
-  double x;
-  double y;
-  double theta = angular_speed * time_delta;
-  if (angular_speed < 1e-6) {
-    x = linear_speed * time_delta;
-    y = 0;
-  } else {
-    x = linear_speed / angular_speed * std::sin(theta);
-    y = linear_speed / angular_speed * (1 - std::cos(theta));
-  }
-
-  Eigen::Isometry3d transform(Eigen::AngleAxisd(theta, Eigen::Vector3d::UnitZ()));
-  transform.translation().x() = x;
-  transform.translation().y() = y;
-  transform.translation().z() = 0;
-
-  return transform;
-}
 void SpeedController::publishPredictedPath(const std::vector<RobotTerrainState>& robot_states) const {
   if (predicted_path_pub_.getNumSubscribers() == 0) {
     return;

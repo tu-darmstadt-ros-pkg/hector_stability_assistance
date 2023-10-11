@@ -4,7 +4,7 @@
   <arg name="node_name" value="whole_body_posture_assistance"/>
   <node pkg="hector_stability_assistance" type="whole_body_posture_assistance_node" name="$(arg node_name)" output="screen" respawn="true">
     <param name="enabled" value="true"/>
-    <param name="control_rate" value="1.0"/>
+    <param name="control_rate" value="10"/>
     <param name="move_group" value="flipper_group"/>
 
     <!-- sdf contact estimation lib parameters -->
@@ -20,6 +20,8 @@
 
     <!-- posture optimization lib parameters -->
     <rosparam file="$(find whole_body_posture_optimization)/config/opt_asterix.yaml" command="load" />
+
+    <remap from="/cmd_vel" to="/cmd_vel_raw"/>
   </node>
 
    <!-- moveit_cpp parameters -->

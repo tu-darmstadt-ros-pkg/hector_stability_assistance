@@ -9,8 +9,11 @@
 namespace hector_stability_assistance {
 
 WholeBodyPostureAssistance::WholeBodyPostureAssistance(const ros::NodeHandle &nh, const ros::NodeHandle &pnh)
-: nh_(nh), pnh_(pnh)
-{}
+: nh_(nh), pnh_(pnh), last_twist_zero_(false)
+{
+  latest_twist_.linear.x = 0.0;
+  latest_twist_.angular.z = 0.0;
+}
 
 bool WholeBodyPostureAssistance::init() {
   if (!loadParameters(pnh_)) {
@@ -36,9 +39,12 @@ bool WholeBodyPostureAssistance::init() {
 
   moveit_cpp_ptr_ = std::make_shared<moveit_cpp::MoveItCpp>(pnh_);
 
-  // Publishers & Subscribers
+  // Publishers
   robot_display_pub_ = pnh_.advertise<moveit_msgs::DisplayRobotState>("optimized_robot_state", 10);
   robot_marker_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("optimized_robot_state_marker", 10);
+
+  // Subscribers
+  cmd_vel_sub_ = pnh_.subscribe<geometry_msgs::Twist>("/cmd_vel", 10, &WholeBodyPostureAssistance::cmdVelCallback, this);
 
   timer_ = nh_.createTimer(ros::Duration(1/control_rate_), &WholeBodyPostureAssistance::timerCallback, this, false, true);
 
@@ -152,14 +158,25 @@ void WholeBodyPostureAssistance::update() {
   if (!state_provider_->getRobotPose(current_robot_pose)) {
     return;
   }
-  Eigen::Isometry3d pose_2d = util::pose3Dto2D(current_robot_pose);
+  Eigen::Isometry3d movement_delta_transform = util::computeDiffDriveTransform(latest_twist_.linear.x, latest_twist_.angular.z, 0.5);
+  Eigen::Isometry3d query_pose = current_robot_pose * movement_delta_transform;
+  Eigen::Isometry3d pose_2d = util::pose3Dto2D(query_pose);
 
   auto result = optimizer_->findOptimalPosture(pose_2d, optimizer_->getDefaultJointPositions(), last_result_->result_state);
   last_result_ = std::make_shared<whole_body_posture_optimization::PostureOptimizationResult>(result);
   publishRobotStateDisplay(result.result_state);
 
   // Execute trajectory
-  if (result.success && result.result_state) {
+  bool execute_trajectory = result.success && result.result_state;
+  // Stop sending commands when twist is zero (repeatedly)
+  if (latest_twist_.linear.x == 0 && latest_twist_.angular.z == 0) {
+    execute_trajectory &= !last_twist_zero_;
+    last_twist_zero_ = true;
+  } else {
+    last_twist_zero_ = false;
+  }
+
+  if (execute_trajectory) {
     moveit::core::RobotState current_state(robot_model_);
     if (!state_provider_->getRobotState(current_state)) {
       ROS_ERROR_STREAM("Failed to retrieve current state");
@@ -199,8 +216,12 @@ robot_trajectory::RobotTrajectory WholeBodyPostureAssistance::createTrajectory(c
 {
   robot_trajectory::RobotTrajectory trajectory(robot_model_, move_group_);
   trajectory.addSuffixWayPoint(start_state, 0.0);
-  trajectory.addSuffixWayPoint(end_state, 1.0);
+  trajectory.addSuffixWayPoint(end_state, 1/control_rate_);
   return trajectory;
+}
+
+void WholeBodyPostureAssistance::cmdVelCallback(const geometry_msgs::TwistConstPtr &twist_msg) {
+  latest_twist_ = *twist_msg;
 }
 
 }  // namespace hector_stability_assistance

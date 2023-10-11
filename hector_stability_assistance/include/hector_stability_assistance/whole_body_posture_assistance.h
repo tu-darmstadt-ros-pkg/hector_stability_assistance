@@ -32,6 +32,8 @@ private:
   robot_trajectory::RobotTrajectory createTrajectory(const moveit::core::RobotState& start_state, const moveit::core::RobotState& end_state) const;
   bool executeJointTrajectory(const robot_trajectory::RobotTrajectory& trajectory, ros::Time start_time=ros::Time());
 
+  void cmdVelCallback(const geometry_msgs::TwistConstPtr& twist_msg);
+
   void publishRobotStateDisplay(const robot_state::RobotStatePtr& robot_state);
 
   // Parameters
@@ -56,6 +58,10 @@ private:
   std::shared_ptr<whole_body_posture_optimization::PostureOptimizationResult> last_result_;
 
   std::shared_ptr<moveit_cpp::MoveItCpp> moveit_cpp_ptr_;
+
+  ros::Subscriber cmd_vel_sub_;
+  geometry_msgs::Twist latest_twist_;
+  bool last_twist_zero_;
 
   ros::Publisher robot_display_pub_;
   ros::Publisher robot_marker_pub_;
