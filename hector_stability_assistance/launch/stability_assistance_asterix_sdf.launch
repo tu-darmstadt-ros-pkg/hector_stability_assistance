@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+
+<launch>
+  <include file="$(find hector_stability_assistance)/launch/speed_controller_asterix_sdf.launch"/>
+  <include file="$(find hector_stability_assistance)/launch/stability_visualization_asterix_sdf.launch"/>
+</launch>
