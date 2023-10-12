@@ -139,6 +139,15 @@ void WholeBodyPostureAssistance::update() {
   if (!enabled_) {
     return;
   }
+  // Stop sending commands when twist is zero (repeatedly)
+  if (latest_twist_.linear.x == 0 && latest_twist_.angular.z == 0) {
+    if (last_twist_zero_) {
+      return;
+    }
+    last_twist_zero_ = true;
+  } else {
+    last_twist_zero_ = false;
+  }
   if (!mapReceived()) {
     ROS_WARN_STREAM_THROTTLE(1, "No map received yet");
     return;
@@ -158,6 +167,8 @@ void WholeBodyPostureAssistance::update() {
   if (!state_provider_->getRobotPose(current_robot_pose)) {
     return;
   }
+  double distance = 0.05;
+  double time = distance = latest_twist_.linear.x;
   Eigen::Isometry3d movement_delta_transform = util::computeDiffDriveTransform(latest_twist_.linear.x, latest_twist_.angular.z, 0.5);
   Eigen::Isometry3d query_pose = current_robot_pose * movement_delta_transform;
   Eigen::Isometry3d pose_2d = util::pose3Dto2D(query_pose);
@@ -167,16 +178,7 @@ void WholeBodyPostureAssistance::update() {
   publishRobotStateDisplay(result.result_state);
 
   // Execute trajectory
-  bool execute_trajectory = result.success && result.result_state;
-  // Stop sending commands when twist is zero (repeatedly)
-  if (latest_twist_.linear.x == 0 && latest_twist_.angular.z == 0) {
-    execute_trajectory &= !last_twist_zero_;
-    last_twist_zero_ = true;
-  } else {
-    last_twist_zero_ = false;
-  }
-
-  if (execute_trajectory) {
+  if (result.success && result.result_state) {
     moveit::core::RobotState current_state(robot_model_);
     if (!state_provider_->getRobotState(current_state)) {
       ROS_ERROR_STREAM("Failed to retrieve current state");
