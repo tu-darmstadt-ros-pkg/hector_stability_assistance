@@ -11,7 +11,7 @@
 #include <whole_body_posture_optimization/whole_body_posture_optimization.h>
 
 #include <hector_stability_assistance/robot_state_provider.h>
-
+#include <std_msgs/Bool.h>
 
 namespace hector_stability_assistance {
 
@@ -33,6 +33,9 @@ private:
   bool executeJointTrajectory(const robot_trajectory::RobotTrajectory& trajectory, ros::Time start_time=ros::Time());
 
   void cmdVelCallback(const geometry_msgs::TwistConstPtr& twist_msg);
+  void enableCallback(const std_msgs::BoolConstPtr& bool_msg);
+  void publishEnabledStatus();
+
 
   void publishRobotStateDisplay(const robot_state::RobotStatePtr& robot_state);
 
@@ -62,6 +65,9 @@ private:
   ros::Subscriber cmd_vel_sub_;
   geometry_msgs::Twist latest_twist_;
   bool last_twist_zero_;
+
+  ros::Subscriber enable_sub_;
+  ros::Publisher enabled_status_pub_;
 
   ros::Publisher robot_display_pub_;
   ros::Publisher robot_marker_pub_;

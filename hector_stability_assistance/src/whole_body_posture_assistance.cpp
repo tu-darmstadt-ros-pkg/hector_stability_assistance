@@ -42,9 +42,12 @@ bool WholeBodyPostureAssistance::init() {
   // Publishers
   robot_display_pub_ = pnh_.advertise<moveit_msgs::DisplayRobotState>("optimized_robot_state", 10);
   robot_marker_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("optimized_robot_state_marker", 10);
+  enabled_status_pub_ = pnh_.advertise<std_msgs::Bool>("enabled_status", 10, true);
+  publishEnabledStatus();
 
   // Subscribers
   cmd_vel_sub_ = pnh_.subscribe<geometry_msgs::Twist>("/cmd_vel", 10, &WholeBodyPostureAssistance::cmdVelCallback, this);
+  enable_sub_ = pnh_.subscribe<std_msgs::Bool>("enable", 10, &WholeBodyPostureAssistance::enableCallback, this);
 
   timer_ = nh_.createTimer(ros::Duration(1/control_rate_), &WholeBodyPostureAssistance::timerCallback, this, false, true);
 
@@ -224,6 +227,18 @@ robot_trajectory::RobotTrajectory WholeBodyPostureAssistance::createTrajectory(c
 
 void WholeBodyPostureAssistance::cmdVelCallback(const geometry_msgs::TwistConstPtr &twist_msg) {
   latest_twist_ = *twist_msg;
+}
+
+void WholeBodyPostureAssistance::enableCallback(const std_msgs::BoolConstPtr &bool_msg) {
+  enabled_ = bool_msg->data;
+  ROS_INFO_STREAM((enabled_ ? "Enabling " : "Disabling ") << " whole body posture assistance.");
+  publishEnabledStatus();
+}
+
+void WholeBodyPostureAssistance::publishEnabledStatus() {
+  std_msgs::Bool bool_msg;
+  bool_msg.data = enabled_;
+  enabled_status_pub_.publish(bool_msg);
 }
 
 }  // namespace hector_stability_assistance
