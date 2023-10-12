@@ -19,7 +19,7 @@
 namespace hector_stability_assistance {
 
 StabilityVisualization::StabilityVisualization(const ros::NodeHandle &nh, const ros::NodeHandle &pnh)
-: nh_(nh), pnh_(pnh), tf_listener_(tf_buffer_), update_frequency_(10.0), predict_pose_(false) {
+: nh_(nh), pnh_(pnh), tf_listener_(tf_buffer_), update_frequency_(10.0), predict_pose_(false), nominal_stability_margin_(std::nan("")) {
 
 }
 
@@ -28,6 +28,7 @@ bool StabilityVisualization::init() {
   update_frequency_ = pnh_.param("update_frequency", 10.0);
   elevation_layer_name_ = pnh_.param("elevation_layer_name", std::string("elevation"));
   predict_pose_ = pnh_.param("predict_pose", false);
+  nominal_stability_margin_ = pnh_.param("nominal_stability_margin", 2.0);
 
   // Load urdf model
   urdf_ = std::make_shared<urdf::Model>();
@@ -83,6 +84,9 @@ bool StabilityVisualization::init() {
 
   // Subscriber and Publisher
   stability_margin_pub_ = pnh_.advertise<std_msgs::Float64>("stability_margin", 1);
+  if (!std::isnan(nominal_stability_margin_)) {
+    normalized_stability_margin_pub_ = pnh_.advertise<std_msgs::Float64>("normalized_stability_margin", 1);
+  }
   stability_margins_pub_ = pnh_.advertise<std_msgs::Float64MultiArray>("stability_margins", 1);
   traction_pub_ = pnh_.advertise<std_msgs::Float64>("traction", 1);
   support_polygon_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("support_polygon", 1);
@@ -131,7 +135,16 @@ void StabilityVisualization::update() {
   // Stability
   computeStabilityMargin(robot_pose_eigen, support_polygon);
   visualization::publishEdgeStabilities(support_polygon, stability_margins_pub_);
-  visualization::publishMinStability(support_polygon, stability_margin_pub_);
+  auto min_it = std::min_element(support_polygon.edge_stabilities.begin(), support_polygon.edge_stabilities.end());
+  if (min_it != support_polygon.edge_stabilities.end()) {
+    double stability_margin = *min_it;
+    visualization::publishDouble(stability_margin, stability_margin_pub_);
+    if (!std::isnan(nominal_stability_margin_)) {
+      double normalized_stability_margin = stability_margin / nominal_stability_margin_;
+      normalized_stability_margin = std::min(normalized_stability_margin, 1.0);
+      visualization::publishDouble(normalized_stability_margin, normalized_stability_margin_pub_);
+    }
+  }
 
   // Support polygon
   visualization::publishSupportPolygon(support_polygon, contact_information, support_polygon_pub_);

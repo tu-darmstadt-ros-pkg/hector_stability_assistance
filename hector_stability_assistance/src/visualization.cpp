@@ -57,6 +57,12 @@ void deleteRobotModels(ros::Publisher& publisher)
   publisher.publish(display_msg);
 }
 
+void publishDouble(double value, ros::Publisher& publisher) {
+  std_msgs::Float64 stability_msg;
+  stability_msg.data = value;
+  publisher.publish(stability_msg);
+}
+
 }
 }
 
