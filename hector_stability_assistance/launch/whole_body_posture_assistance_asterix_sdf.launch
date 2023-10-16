@@ -1,6 +1,10 @@
 <?xml version="1.0"?>
 
 <launch>
+  <arg name="use_stability_assistance" default="$(optenv HECTOR_USE_STABILITY_ASSISTANCE false)"/>
+  <arg name="cmd_vel_raw_topic" unless="$(arg use_stability_assistance)"  value="/cmd_vel_raw"/>
+  <arg name="cmd_vel_raw_topic" if="$(arg use_stability_assistance)"      value="/cmd_vel_unlimited"/>
+
   <arg name="node_name" value="whole_body_posture_assistance"/>
   <node pkg="hector_stability_assistance" type="whole_body_posture_assistance_node" name="$(arg node_name)" output="screen" respawn="true">
     <param name="enabled" value="true"/>
@@ -21,7 +25,7 @@
     <!-- posture optimization lib parameters -->
     <rosparam file="$(find whole_body_posture_optimization)/config/opt_asterix.yaml" command="load" />
 
-    <remap from="/cmd_vel" to="/cmd_vel_raw"/>
+    <remap from="/cmd_vel" to="$(arg cmd_vel_raw_topic)"/>
   </node>
 
    <!-- moveit_cpp parameters -->
