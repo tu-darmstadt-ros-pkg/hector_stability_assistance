@@ -166,20 +166,31 @@ void WholeBodyPostureAssistance::update() {
     }
   }
 
+
   Eigen::Isometry3d current_robot_pose;
   if (!state_provider_->getRobotPose(current_robot_pose)) {
     return;
   }
-  double distance = 0.15;
-  double time;
+  Eigen::Isometry3d current_pose_2d = util::pose3Dto2D(current_robot_pose);
+
+  Eigen::Isometry3d query_pose;
   double linear_abs = std::abs(latest_twist_.linear.x);
-  if (linear_abs > 0.0) {
-    time = distance / linear_abs;
+  double angular_abs = std::abs(latest_twist_.angular.z);
+
+  double epsilon = 1e-5;
+  if (linear_abs < epsilon && angular_abs < epsilon) {
+    query_pose = current_pose_2d;
   } else {
-    time = 0.5;
+    double distance = 0.15;
+    double rot_distance = 0.2;
+    double time_linear = linear_abs > 0.0 ? distance / linear_abs : std::numeric_limits<double>::max();
+    double time_angular = angular_abs > 0.0 ? rot_distance / angular_abs : std::numeric_limits<double>::max();
+    double time = std::min(time_linear, time_angular);
+
+    Eigen::Isometry3d movement_delta_transform = util::computeDiffDriveTransform(latest_twist_.linear.x, latest_twist_.angular.z, time);
+    query_pose =  current_pose_2d * movement_delta_transform;
   }
-  Eigen::Isometry3d movement_delta_transform = util::computeDiffDriveTransform(latest_twist_.linear.x, latest_twist_.angular.z, time);
-  Eigen::Isometry3d query_pose = util::pose3Dto2D(current_robot_pose) * movement_delta_transform;
+
   auto result = optimizer_->findOptimalPosture(query_pose, optimizer_->getDefaultJointPositions(), last_result_->result_state);
   last_result_ = std::make_shared<whole_body_posture_optimization::PostureOptimizationResult>(result);
   publishRobotStateDisplay(result.result_state);
