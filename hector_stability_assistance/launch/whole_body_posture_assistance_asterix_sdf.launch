@@ -9,6 +9,8 @@
   <node pkg="hector_stability_assistance" type="whole_body_posture_assistance_node" name="$(arg node_name)" output="screen" respawn="true">
     <param name="enabled" value="true"/>
     <param name="control_rate" value="10"/>
+    <param name="prediction_distance" value="0.15"/>
+    <param name="prediction_angle" value="0.3"/>
     <param name="move_group" value="flipper_group"/>
 
     <!-- sdf contact estimation lib parameters -->
