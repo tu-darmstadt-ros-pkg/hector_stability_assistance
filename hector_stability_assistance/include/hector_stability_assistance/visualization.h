@@ -21,6 +21,7 @@ void publishSupportPolygon(const hector_pose_prediction_interface::SupportPolygo
                            const hector_pose_prediction_interface::ContactInformation<double>& contact_information,
                            ros::Publisher& publisher);
 void publishDouble(double value, ros::Publisher& publisher);
+void publishPose(const Eigen::Isometry3d& pose, const std::string& frame_id, ros::Publisher& pub);
 
 template <typename T>
 std::string setToString(const std::set<T>& set) {

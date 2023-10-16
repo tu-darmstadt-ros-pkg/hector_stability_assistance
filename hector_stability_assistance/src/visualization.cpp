@@ -4,6 +4,7 @@
 #include <std_msgs/Float64.h>
 #include <hector_pose_prediction_ros/visualization.h>
 #include <hector_rviz_plugins_msgs/DisplayMultiRobotState.h>
+#include <eigen_conversions/eigen_msg.h>
 
 namespace hector_stability_assistance {
 namespace visualization {
@@ -61,6 +62,14 @@ void publishDouble(double value, ros::Publisher& publisher) {
   std_msgs::Float64 stability_msg;
   stability_msg.data = value;
   publisher.publish(stability_msg);
+}
+
+void publishPose(const Eigen::Isometry3d& pose, const std::string& frame_id, ros::Publisher& pub) {
+  geometry_msgs::PoseStamped pose_msg;
+  pose_msg.header.frame_id =  frame_id;
+  pose_msg.header.stamp = ros::Time::now();
+  tf::poseEigenToMsg(pose, pose_msg.pose);
+  pub.publish(pose_msg);
 }
 
 }

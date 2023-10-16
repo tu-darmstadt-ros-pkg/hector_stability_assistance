@@ -2,6 +2,7 @@
 
 #include <sdf_contact_estimation/sdf_contact_estimation.h>
 #include <moveit/robot_state/conversions.h>
+#include <geometry_msgs/PoseStamped.h>
 
 #include <hector_stability_assistance/visualization.h>
 #include <hector_stability_assistance/util.h>
@@ -47,6 +48,7 @@ bool WholeBodyPostureAssistance::init() {
 
   // Publishers
   robot_display_pub_ = pnh_.advertise<moveit_msgs::DisplayRobotState>("optimized_robot_state", 10);
+  query_pose_pub_ = pnh_.advertise<geometry_msgs::PoseStamped>("query_pose", 10);
   robot_marker_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("optimized_robot_state_marker", 10);
   enabled_status_pub_ = pnh_.advertise<std_msgs::Bool>("enabled_status", 10, true);
   publishEnabledStatus();
@@ -196,6 +198,9 @@ void WholeBodyPostureAssistance::update() {
     Eigen::Isometry3d movement_delta_transform = util::computeDiffDriveTransform(latest_twist_.linear.x, latest_twist_.angular.z, time);
     query_pose =  current_pose_2d * movement_delta_transform;
   }
+
+  // Publish query pose
+  visualization::publishPose(query_pose, world_frame_, query_pose_pub_);
 
   auto result = optimizer_->findOptimalPosture(query_pose, optimizer_->getDefaultJointPositions(), last_result_->result_state);
   if (result.success && result.result_state) {

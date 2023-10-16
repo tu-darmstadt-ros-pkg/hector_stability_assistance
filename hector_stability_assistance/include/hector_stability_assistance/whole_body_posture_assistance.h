@@ -72,6 +72,7 @@ private:
   ros::Publisher enabled_status_pub_;
 
   ros::Publisher robot_display_pub_;
+  ros::Publisher query_pose_pub_;
   ros::Publisher robot_marker_pub_;
 };
 
