@@ -170,13 +170,17 @@ void WholeBodyPostureAssistance::update() {
   if (!state_provider_->getRobotPose(current_robot_pose)) {
     return;
   }
-  double distance = 0.05;
-  double time = distance = latest_twist_.linear.x;
-  Eigen::Isometry3d movement_delta_transform = util::computeDiffDriveTransform(latest_twist_.linear.x, latest_twist_.angular.z, 0.5);
-  Eigen::Isometry3d query_pose = current_robot_pose * movement_delta_transform;
-  Eigen::Isometry3d pose_2d = util::pose3Dto2D(query_pose);
-
-  auto result = optimizer_->findOptimalPosture(pose_2d, optimizer_->getDefaultJointPositions(), last_result_->result_state);
+  double distance = 0.15;
+  double time;
+  double linear_abs = std::abs(latest_twist_.linear.x);
+  if (linear_abs > 0.0) {
+    time = distance / linear_abs;
+  } else {
+    time = 0.5;
+  }
+  Eigen::Isometry3d movement_delta_transform = util::computeDiffDriveTransform(latest_twist_.linear.x, latest_twist_.angular.z, time);
+  Eigen::Isometry3d query_pose = util::pose3Dto2D(current_robot_pose) * movement_delta_transform;
+  auto result = optimizer_->findOptimalPosture(query_pose, optimizer_->getDefaultJointPositions(), last_result_->result_state);
   last_result_ = std::make_shared<whole_body_posture_optimization::PostureOptimizationResult>(result);
   publishRobotStateDisplay(result.result_state);
 
