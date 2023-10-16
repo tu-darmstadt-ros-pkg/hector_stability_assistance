@@ -43,6 +43,8 @@ private:
   double control_rate_;
   bool enabled_;
   std::string move_group_;
+  double prediction_distance_;
+  double prediction_angle_;
 
   std::string base_frame_;
   std::string world_frame_;

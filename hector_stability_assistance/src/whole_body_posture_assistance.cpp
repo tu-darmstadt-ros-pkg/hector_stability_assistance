@@ -9,7 +9,13 @@
 namespace hector_stability_assistance {
 
 WholeBodyPostureAssistance::WholeBodyPostureAssistance(const ros::NodeHandle &nh, const ros::NodeHandle &pnh)
-: nh_(nh), pnh_(pnh), last_twist_zero_(false)
+: nh_(nh),
+  pnh_(pnh),
+  enabled_(true),
+  control_rate_(10.0),
+  prediction_distance_(0.15),
+  prediction_angle_(0.2),
+  last_twist_zero_(false)
 {
   latest_twist_.linear.x = 0.0;
   latest_twist_.angular.z = 0.0;
@@ -61,6 +67,8 @@ bool WholeBodyPostureAssistance::loadParameters(const ros::NodeHandle &nh) {
     ROS_ERROR("control_rate must be greater 0.");
     return false;
   }
+  prediction_distance_ = nh.param("prediction_distance", prediction_distance_);
+  prediction_angle_ = nh.param("prediction_angle", prediction_angle_);
   if (!nh.getParam("move_group", move_group_)) {
     ROS_ERROR_STREAM("Required parameter '" << nh.getNamespace() << "/move_group is missing");
     return false;
@@ -181,10 +189,8 @@ void WholeBodyPostureAssistance::update() {
   if (linear_abs < epsilon && angular_abs < epsilon) {
     query_pose = current_pose_2d;
   } else {
-    double distance = 0.15;
-    double rot_distance = 0.2;
-    double time_linear = linear_abs > 0.0 ? distance / linear_abs : std::numeric_limits<double>::max();
-    double time_angular = angular_abs > 0.0 ? rot_distance / angular_abs : std::numeric_limits<double>::max();
+    double time_linear = linear_abs > 0.0 ? prediction_distance_ / linear_abs : std::numeric_limits<double>::max();
+    double time_angular = angular_abs > 0.0 ? prediction_angle_ / angular_abs : std::numeric_limits<double>::max();
     double time = std::min(time_linear, time_angular);
 
     Eigen::Isometry3d movement_delta_transform = util::computeDiffDriveTransform(latest_twist_.linear.x, latest_twist_.angular.z, time);
