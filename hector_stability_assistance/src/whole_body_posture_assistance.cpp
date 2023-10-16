@@ -192,11 +192,10 @@ void WholeBodyPostureAssistance::update() {
   }
 
   auto result = optimizer_->findOptimalPosture(query_pose, optimizer_->getDefaultJointPositions(), last_result_->result_state);
-  last_result_ = std::make_shared<whole_body_posture_optimization::PostureOptimizationResult>(result);
-  publishRobotStateDisplay(result.result_state);
-
-  // Execute trajectory
   if (result.success && result.result_state) {
+    publishRobotStateDisplay(result.result_state);
+    last_result_ = std::make_shared<whole_body_posture_optimization::PostureOptimizationResult>(result);
+    // Execute trajectory
     moveit::core::RobotState current_state(robot_model_);
     if (!state_provider_->getRobotState(current_state)) {
       ROS_ERROR_STREAM("Failed to retrieve current state");
@@ -204,6 +203,8 @@ void WholeBodyPostureAssistance::update() {
     }
     robot_trajectory::RobotTrajectory trajectory = createTrajectory(current_state, *result.result_state);
     executeJointTrajectory(trajectory, ros::Time::now());
+  } else {
+    last_result_.reset();
   }
 }
 
