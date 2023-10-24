@@ -8,6 +8,7 @@
     <param name="maximum_time_step" value="0.25"/>
     <param name="safety_distance" value="0.15"/>
     <param name="sample_resolution" value="0.05"/>
+    <param name="angular_sample_resolution" value="0.15"/>
     <param name="virtual_inertia_factor" value="8.0"/>
     <param name="critical_stability_threshold" value="0.0"/>
     <param name="warn_stability_threshold" value="1.0"/>

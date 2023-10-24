@@ -22,6 +22,7 @@ SpeedController::SpeedController(const ros::NodeHandle& nh, const ros::NodeHandl
   maximum_time_step_(0.25),
   safety_distance_(0.0),
   sample_resolution_(0.05),
+  angular_sample_resolution_(0.15),
   critical_stability_threshold_(0.0),
   warn_stability_threshold_(1.0),
   last_twist_zero_(false),
@@ -100,6 +101,11 @@ bool SpeedController::loadParameters(const ros::NodeHandle& nh) {
   sample_resolution_ = nh.param("sample_resolution", sample_resolution_);
   if (sample_resolution_ <= 0) {
     ROS_ERROR("sample_resolution must be greater than 0.");
+    return false;
+  }
+  angular_sample_resolution_ = nh.param("angular_sample_resolution", angular_sample_resolution_);
+  if (angular_sample_resolution_ <= 0) {
+    ROS_ERROR("angular_sample_resolution must be greater than 0.");
     return false;
   }
   virtual_inertia_factor_ = nh.param("virtual_inertia_factor", virtual_inertia_factor_);
@@ -305,8 +311,18 @@ std::vector<RobotTerrainState> SpeedController::predictTerrainInteraction(double
 
 
   // Predict along robot trajectory (assumes constant velocity)
-  double time_step_linear = sample_resolution_ / std::abs(linear);
-  double time_step = std::min(time_step_linear, maximum_time_step_);
+  double time_step;
+  double linear_abs = std::abs(linear);
+  double angular_abs = std::abs(angular);
+  double epsilon = 1e-5;
+  if (linear_abs < epsilon && angular_abs < epsilon) {
+    time_step = maximum_time_step_;
+  } else {
+    double time_step_linear = linear_abs > 0.0 ? sample_resolution_ / linear_abs : std::numeric_limits<double>::max();
+    double time_step_angular = angular_abs > 0.0 ? angular_sample_resolution_ / angular_abs : std::numeric_limits<double>::max();
+    time_step = std::min(time_step_linear, time_step_angular);
+    time_step = std::min(time_step, maximum_time_step_);
+  }
   unsigned int steps = std::floor(prediction_horizon_ / time_step);
   robot_states.reserve(steps);
 
@@ -325,7 +341,7 @@ std::vector<RobotTerrainState> SpeedController::predictTerrainInteraction(double
       robot_states.push_back(std::move(robot_terrain_state));
       break;
     }
-    Eigen::Vector3d force = robot_states.back().robot_pose.linear() * Eigen::Vector3d::UnitX() * std::abs(linear) * virtual_inertia_factor_;
+    Eigen::Vector3d force = robot_states.back().robot_pose.linear() * Eigen::Vector3d::UnitX() * linear_abs * virtual_inertia_factor_;
     computeStabilityMargin(robot_terrain_state, force);
     robot_states.push_back(std::move(robot_terrain_state));
   }

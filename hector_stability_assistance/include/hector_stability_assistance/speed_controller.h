@@ -69,6 +69,7 @@ private:
   double maximum_time_step_;
   double safety_distance_;
   double sample_resolution_;
+  double angular_sample_resolution_;
   double critical_stability_threshold_;
   double warn_stability_threshold_;
   double virtual_inertia_factor_;
