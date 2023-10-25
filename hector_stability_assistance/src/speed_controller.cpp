@@ -371,15 +371,8 @@ double SpeedController::computeSpeedScaling(double linear, double angular,
 
   double speed_scaling = 1.0;
   if (critical) {
-    if (prediction_horizon_ > 0) {
-      // Linearly reduce speed up to a safety distance in front of the critical state
-      double time_safety = safety_distance_ / std::abs(linear);
-      double time_until_stop = std::max(critical_time_delta - time_safety, 0.0);
-      speed_scaling =  time_until_stop / prediction_horizon_;
-      speed_scaling = std::min(speed_scaling, 1.0);
-    } else {
-      speed_scaling = 0.0;
-    }
+    // Linearly reduce speed up to a safety distance in front of the critical state
+    speed_scaling = computeLinearSpeedReduction(linear, critical_time_delta);
   }
 
 //  ROS_INFO_STREAM("speed scaling: " << speed_scaling << ", critical time delta: " << critical_time_delta);
@@ -387,6 +380,32 @@ double SpeedController::computeSpeedScaling(double linear, double angular,
   std_msgs::Float64 float_msg;
   float_msg.data = speed_scaling;
   speed_scaling_pub_.publish(float_msg);
+  return speed_scaling;
+}
+
+double SpeedController::computeLinearSpeedReduction(double linear, double time_delta_critical) const {
+  // Stop immediately when there is no prediction horizon
+  // This implies, that the current state is critical
+  if (prediction_horizon_ <= 0) {
+    return 0.0;
+  }
+
+  double time_until_stop = 0; // Time until the robot has to stop to be safe
+  if (safety_distance_ <= 0) {
+    time_until_stop = time_delta_critical;
+  } else {
+    double linear_abs = std::abs(linear);
+    if (linear_abs < 1e-5) {
+      // If there is a safety distance but our linear speed is slow, we have to stop immediately
+      // because the critical state is inside the safety distance
+      return 0.0;
+    }
+    double time_safety = safety_distance_ / linear_abs;
+    time_until_stop = std::max(time_delta_critical - time_safety, 0.0);
+  }
+
+  double speed_scaling =  time_until_stop / prediction_horizon_;
+  speed_scaling = std::min(speed_scaling, 1.0);
   return speed_scaling;
 }
 

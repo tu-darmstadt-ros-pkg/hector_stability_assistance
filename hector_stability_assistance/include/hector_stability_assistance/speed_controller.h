@@ -41,6 +41,13 @@ private:
   void computeSpeedCommand(double& linear, double& angular, std::unordered_map<std::string, double>& joint_speeds);
   std::vector<RobotTerrainState> predictTerrainInteraction(double linear, double angular, const std::unordered_map<std::string, double>& joint_speeds);
   double computeSpeedScaling(double linear, double angular, const std::vector<RobotTerrainState>& robot_states);
+  /***
+   * Compute the speed reduction factor when a critical state has been found
+   * @param linear Current commanded linear speed
+   * @param time_delta_critical Time delta until a critical state is reached
+   * @return Speed reduction factor that prevents reaching the critical state
+   */
+  double computeLinearSpeedReduction(double linear, double time_delta_critical) const;
 
   bool estimateRobotPose(const Eigen::Isometry3d& robot_pose,
                          const std::unordered_map<std::string, double>& joint_positions,
