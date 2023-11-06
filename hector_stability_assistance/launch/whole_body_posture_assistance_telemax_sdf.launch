@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+
+<launch>
+  <arg name="use_stability_assistance" default="$(optenv HECTOR_USE_STABILITY_ASSISTANCE false)"/>
+  <arg name="cmd_vel_raw_topic" unless="$(arg use_stability_assistance)"  value="/cmd_vel_raw"/>
+  <arg name="cmd_vel_raw_topic" if="$(arg use_stability_assistance)"      value="/cmd_vel_unlimited"/>
+
+  <arg name="node_name" value="whole_body_posture_assistance"/>
+  <node pkg="hector_stability_assistance" type="whole_body_posture_assistance_node" name="$(arg node_name)" output="screen" respawn="true">
+    <param name="enabled" value="true"/>
+    <param name="control_rate" value="2"/>
+    <param name="prediction_distance" value="0.15"/>
+    <param name="prediction_angle" value="0.3"/>
+    <param name="move_group" value="complete_robot_group"/>
+
+    <!-- sdf contact estimation lib parameters -->
+    <param name="pose_predictor" value="sdf_contact_estimation::SDFContactEstimation"/>
+    <rosparam file="$(find sdf_contact_estimation)/config/optimization.yaml" command="load" ns="sdf_pose_predictor"/>
+    <rosparam file="$(find sdf_contact_estimation)/config/telemax_shape_config.yaml" command="load" ns="sdf_pose_predictor/shape_model" />
+    <param name="sdf_pose_predictor/debug" value="false"/>
+
+    <!-- esdf server parameters -->
+    <rosparam file="$(find hector_sensor_proc_launch)/config/voxblox_common_config.yaml" command="load" ns="esdf_server"/>
+    <param name="esdf_server/update_mesh_every_n_sec" value="0.0"/>
+    <remap from="~/esdf_server/esdf_map_in" to="/esdf_server/esdf_map_out" />
+
+    <!-- posture optimization lib parameters -->
+    <rosparam file="$(find whole_body_posture_optimization)/config/opt_telemax.yaml" command="load" />
+
+    <remap from="/cmd_vel" to="$(arg cmd_vel_raw_topic)"/>
+  </node>
+
+   <!-- moveit_cpp parameters -->
+  <rosparam ns="$(arg node_name)" file="$(find whole_body_planning_server)/config/moveit_cpp.yaml" command="load"/>
+
+  <!-- moveit parameters -->
+  <group ns="robot_description_planning">
+    <rosparam command="load" file="$(find drz_telemax_moveit_config)/config/joint_limits.yaml"/>
+  </group>
+
+  <!-- Planning Pipeline -->
+  <include ns="$(arg node_name)/ompl" file="$(find drz_telemax_moveit_config)/launch/ompl_planning_pipeline.launch.xml"/>
+
+  <!-- Trajectory execution  -->
+  <include ns="$(arg node_name)" file="$(find drz_telemax_moveit_config)/launch/trajectory_execution.launch.xml"/>
+</launch>
