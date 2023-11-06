@@ -215,7 +215,7 @@ void WholeBodyPostureAssistance::update() {
     robot_trajectory::RobotTrajectory trajectory = createTrajectory(current_state, *result.result_state);
     executeJointTrajectory(trajectory, ros::Time::now());
   } else {
-    last_result_.reset();
+    last_result_ = nullptr;
   }
 }
 
