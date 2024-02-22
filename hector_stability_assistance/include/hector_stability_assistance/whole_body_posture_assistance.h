@@ -40,7 +40,7 @@ private:
   void publishRobotStateDisplay(const robot_state::RobotStatePtr& robot_state);
 
   // Parameters
-  double control_rate_;
+  double control_rate_duration_;
   bool enabled_;
   std::string move_group_;
   double prediction_distance_;

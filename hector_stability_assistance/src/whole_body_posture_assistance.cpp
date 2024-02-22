@@ -12,8 +12,7 @@ namespace hector_stability_assistance {
 WholeBodyPostureAssistance::WholeBodyPostureAssistance(const ros::NodeHandle &nh, const ros::NodeHandle &pnh)
 : nh_(nh),
   pnh_(pnh),
-  enabled_(true),
-  control_rate_(10.0),
+  enabled_(true), control_rate_duration_(0.1),
   prediction_distance_(0.15),
   prediction_angle_(0.2),
   last_twist_zero_(false)
@@ -57,18 +56,20 @@ bool WholeBodyPostureAssistance::init() {
   cmd_vel_sub_ = pnh_.subscribe<geometry_msgs::Twist>("/cmd_vel", 10, &WholeBodyPostureAssistance::cmdVelCallback, this);
   enable_sub_ = pnh_.subscribe<std_msgs::Bool>("enable", 10, &WholeBodyPostureAssistance::enableCallback, this);
 
-  timer_ = nh_.createTimer(ros::Duration(1/control_rate_), &WholeBodyPostureAssistance::timerCallback, this, false, true);
+  timer_ = nh_.createTimer(ros::Duration(control_rate_duration_), &WholeBodyPostureAssistance::timerCallback, this, false, true);
 
   return true;
 }
 
 bool WholeBodyPostureAssistance::loadParameters(const ros::NodeHandle &nh) {
   enabled_ = nh.param("enabled", enabled_);
-  control_rate_ = nh.param("control_rate", control_rate_);
-  if (control_rate_ <= 0) {
+  double control_rate = nh.param("control_rate", 10);
+  if (control_rate <= 0) {
     ROS_ERROR("control_rate must be greater 0.");
     return false;
   }
+  control_rate_duration_ = 1.0 / control_rate;
+
   prediction_distance_ = nh.param("prediction_distance", prediction_distance_);
   prediction_angle_ = nh.param("prediction_angle", prediction_angle_);
   if (!nh.getParam("move_group", move_group_)) {
@@ -145,6 +146,10 @@ bool WholeBodyPostureAssistance::initPostureOptimization() {
 }
 
 void WholeBodyPostureAssistance::timerCallback(const ros::TimerEvent &event) {
+  double event_delay = event.current_real.toSec() - event.current_expected.toSec();
+  if (std::abs(event_delay) > control_rate_duration_) {
+    ROS_WARN_STREAM("Update has been called with a delay of " << event_delay);
+  }
   update();
 }
 
@@ -248,7 +253,7 @@ robot_trajectory::RobotTrajectory WholeBodyPostureAssistance::createTrajectory(c
 {
   robot_trajectory::RobotTrajectory trajectory(robot_model_, move_group_);
   trajectory.addSuffixWayPoint(start_state, 0.0);
-  trajectory.addSuffixWayPoint(end_state, 1/control_rate_);
+  trajectory.addSuffixWayPoint(end_state, control_rate_duration_);
   return trajectory;
 }
 
