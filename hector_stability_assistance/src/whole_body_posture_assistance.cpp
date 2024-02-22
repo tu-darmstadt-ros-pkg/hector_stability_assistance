@@ -218,6 +218,12 @@ void WholeBodyPostureAssistance::update() {
       return;
     }
     robot_trajectory::RobotTrajectory trajectory = createTrajectory(current_state, *result.result_state);
+    double required_time = approximateTimeForStateChange(trajectory.getFirstWayPoint(), trajectory.getLastWayPoint());
+    double max_speed_base_speed = prediction_distance_ / required_time;
+    max_speed_base_speed = std::min(linear_abs, max_speed_base_speed);
+    if (max_speed_base_speed < linear_abs) {
+      ROS_WARN_STREAM("Slowdown to speed of : " << max_speed_base_speed);
+    }
     executeJointTrajectory(trajectory, ros::Time::now());
   } else {
     last_result_ = nullptr;
@@ -271,6 +277,31 @@ void WholeBodyPostureAssistance::publishEnabledStatus() {
   std_msgs::Bool bool_msg;
   bool_msg.data = enabled_;
   enabled_status_pub_.publish(bool_msg);
+}
+
+double WholeBodyPostureAssistance::approximateTimeForStateChange(const robot_state::RobotState &state_a,
+                                                                 const robot_state::RobotState &state_b) {
+  double required_time = 0.0;
+  std::string slowest_joint = "undefined";
+  const robot_model::RobotModelConstPtr& model = state_a.getRobotModel();
+  for (unsigned int i = 0; i < model->getJointModelCount(); ++i) {
+    const moveit::core::JointModel* joint = model->getJointModel(i);
+    if (joint->getVariableBounds().size() != 1 ||
+        !joint->getVariableBounds()[0].velocity_bounded_) {
+      continue;
+    }
+    double velocity_limit = joint->getVariableBounds()[0].max_velocity_;
+    const double* pos_a = state_a.getJointPositions(joint);
+    const double* pos_b = state_b.getJointPositions(joint);
+    double distance = joint->distance(pos_a, pos_b);
+    double time = distance / velocity_limit; // assume movement with constant max. velocity
+    if (time > required_time) {
+      required_time = time;
+      slowest_joint = joint->getName();
+    }
+  }
+
+  return required_time;
 }
 
 }  // namespace hector_stability_assistance

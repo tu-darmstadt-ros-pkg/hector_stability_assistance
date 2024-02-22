@@ -39,6 +39,8 @@ private:
 
   void publishRobotStateDisplay(const robot_state::RobotStatePtr& robot_state);
 
+  double approximateTimeForStateChange(const robot_state::RobotState& state_a, const robot_state::RobotState& state_b);
+
   // Parameters
   double control_rate_duration_;
   bool enabled_;
