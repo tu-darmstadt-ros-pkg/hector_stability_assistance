@@ -281,6 +281,9 @@ void WholeBodyPostureAssistance::enableCallback(const std_msgs::BoolConstPtr &bo
   enabled_ = bool_msg->data;
   ROS_INFO_STREAM((enabled_ ? "Enabling " : "Disabling ") << " whole body posture assistance.");
   publishEnabledStatus();
+  if (!enabled_) {
+    moveit_cpp_ptr_->getTrajectoryExecutionManager()->stopExecution();
+  }
 }
 
 void WholeBodyPostureAssistance::publishEnabledStatus() {
