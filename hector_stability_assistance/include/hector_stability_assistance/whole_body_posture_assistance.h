@@ -32,13 +32,14 @@ private:
   robot_trajectory::RobotTrajectory createTrajectory(const moveit::core::RobotState& start_state, const moveit::core::RobotState& end_state) const;
   bool executeJointTrajectory(const robot_trajectory::RobotTrajectory& trajectory, ros::Time start_time=ros::Time());
 
-  void cmdVelCallback(const geometry_msgs::TwistConstPtr& twist_msg);
+  void cmdVelCallback(geometry_msgs::Twist twist_msg);
   void enableCallback(const std_msgs::BoolConstPtr& bool_msg);
   void publishEnabledStatus();
 
 
   void publishRobotStateDisplay(const robot_state::RobotStatePtr& robot_state);
 
+  double computeSpeedScaling(double linear_speed, double angular_speed);
   double approximateTimeForStateChange(const robot_state::RobotState& state_a, const robot_state::RobotState& state_b);
 
   // Parameters
@@ -54,6 +55,8 @@ private:
   ros::NodeHandle nh_;
   ros::NodeHandle pnh_;
   ros::Timer timer_;
+  ros::CallbackQueue timer_queue_;
+  ros::AsyncSpinner timer_spinner_;
   std::shared_ptr<RobotStateProvider> state_provider_;
 
   std::shared_ptr<urdf::Model> urdf_;
@@ -65,6 +68,7 @@ private:
   std::shared_ptr<whole_body_posture_optimization::PostureOptimizationResult> last_result_;
 
   std::shared_ptr<moveit_cpp::MoveItCpp> moveit_cpp_ptr_;
+  robot_trajectory::RobotTrajectoryPtr trajectory_;
 
   ros::Subscriber cmd_vel_sub_;
   geometry_msgs::Twist latest_twist_;
@@ -76,6 +80,8 @@ private:
   ros::Publisher robot_display_pub_;
   ros::Publisher query_pose_pub_;
   ros::Publisher robot_marker_pub_;
+
+  ros::Publisher cmd_vel_pub_;
 };
 
 }  // namespace hector_stability_assistance

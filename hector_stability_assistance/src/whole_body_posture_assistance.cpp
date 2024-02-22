@@ -12,10 +12,12 @@ namespace hector_stability_assistance {
 WholeBodyPostureAssistance::WholeBodyPostureAssistance(const ros::NodeHandle &nh, const ros::NodeHandle &pnh)
 : nh_(nh),
   pnh_(pnh),
-  enabled_(true), control_rate_duration_(0.1),
+  enabled_(true),
+  control_rate_duration_(0.1),
   prediction_distance_(0.15),
   prediction_angle_(0.2),
-  last_twist_zero_(false)
+  last_twist_zero_(false),
+  timer_spinner_(0, &timer_queue_)
 {
   latest_twist_.linear.x = 0.0;
   latest_twist_.angular.z = 0.0;
@@ -50,13 +52,19 @@ bool WholeBodyPostureAssistance::init() {
   query_pose_pub_ = pnh_.advertise<geometry_msgs::PoseStamped>("query_pose", 10);
   robot_marker_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("optimized_robot_state_marker", 10);
   enabled_status_pub_ = pnh_.advertise<std_msgs::Bool>("enabled_status", 10, true);
+  cmd_vel_pub_ = pnh_.advertise<geometry_msgs::Twist>("cmd_vel_out", 10, false);
   publishEnabledStatus();
 
   // Subscribers
   cmd_vel_sub_ = pnh_.subscribe<geometry_msgs::Twist>("/cmd_vel", 10, &WholeBodyPostureAssistance::cmdVelCallback, this);
   enable_sub_ = pnh_.subscribe<std_msgs::Bool>("enable", 10, &WholeBodyPostureAssistance::enableCallback, this);
 
-  timer_ = nh_.createTimer(ros::Duration(control_rate_duration_), &WholeBodyPostureAssistance::timerCallback, this, false, true);
+
+  // Timer on separate thread
+  ros::NodeHandle timer_nh(nh_);
+  timer_nh.setCallbackQueue(&timer_queue_);
+  timer_ = timer_nh.createTimer(ros::Duration(control_rate_duration_), &WholeBodyPostureAssistance::timerCallback, this, false, true);
+  timer_spinner_.start();
 
   return true;
 }
@@ -218,12 +226,6 @@ void WholeBodyPostureAssistance::update() {
       return;
     }
     robot_trajectory::RobotTrajectory trajectory = createTrajectory(current_state, *result.result_state);
-    double required_time = approximateTimeForStateChange(trajectory.getFirstWayPoint(), trajectory.getLastWayPoint());
-    double max_speed_base_speed = prediction_distance_ / required_time;
-    max_speed_base_speed = std::min(linear_abs, max_speed_base_speed);
-    if (max_speed_base_speed < linear_abs) {
-      ROS_WARN_STREAM("Slowdown to speed of : " << max_speed_base_speed);
-    }
     executeJointTrajectory(trajectory, ros::Time::now());
   } else {
     last_result_ = nullptr;
@@ -247,6 +249,8 @@ bool WholeBodyPostureAssistance::executeJointTrajectory(const robot_trajectory::
     return false;
   }
 
+  trajectory_ = std::make_shared<robot_trajectory::RobotTrajectory>(trajectory, true);
+
   // Execute trajectory
   moveit_msgs::RobotTrajectory robot_trajectory_msg;
   trajectory.getRobotTrajectoryMsg(robot_trajectory_msg);
@@ -263,8 +267,14 @@ robot_trajectory::RobotTrajectory WholeBodyPostureAssistance::createTrajectory(c
   return trajectory;
 }
 
-void WholeBodyPostureAssistance::cmdVelCallback(const geometry_msgs::TwistConstPtr &twist_msg) {
-  latest_twist_ = *twist_msg;
+void WholeBodyPostureAssistance::cmdVelCallback(geometry_msgs::Twist twist_msg) {
+  latest_twist_ = twist_msg;
+
+  double scaling = computeSpeedScaling(latest_twist_.linear.x, latest_twist_.angular.z);
+  twist_msg.linear.x *= scaling;
+  twist_msg.angular.z *= scaling;
+
+  cmd_vel_pub_.publish(twist_msg);
 }
 
 void WholeBodyPostureAssistance::enableCallback(const std_msgs::BoolConstPtr &bool_msg) {
@@ -302,6 +312,31 @@ double WholeBodyPostureAssistance::approximateTimeForStateChange(const robot_sta
   }
 
   return required_time;
+}
+double WholeBodyPostureAssistance::computeSpeedScaling(double linear_speed, double angular_speed) {
+  if (!trajectory_ || !enabled_) {
+    return 1.0;
+  }
+
+  moveit::core::RobotState current_state(robot_model_);
+  if (!state_provider_->getRobotState(current_state)) {
+    ROS_ERROR_STREAM("Failed to retrieve current state");
+    return 1.0;
+  }
+
+  double required_time = approximateTimeForStateChange(current_state, trajectory_->getLastWayPoint());
+
+  // Distance of base
+  Eigen::Isometry3d start_pose = current_state.getJointTransform("world_virtual_joint");
+  Eigen::Isometry3d end_pose = trajectory_->getLastWayPoint().getJointTransform("world_virtual_joint");
+  double base_distance = (start_pose.translation().block<2, 1>(0, 0) - end_pose.translation().block<2, 1>(0, 0)).norm();
+
+  double max_base_speed = base_distance / required_time;
+
+  double linear_speed_abs = std::abs(linear_speed);
+  double scaling = max_base_speed / linear_speed_abs;
+  scaling = std::min(scaling, 1.0); // Do not speed up
+  return scaling;
 }
 
 }  // namespace hector_stability_assistance
