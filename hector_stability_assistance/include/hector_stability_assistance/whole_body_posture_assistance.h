@@ -29,7 +29,7 @@ private:
 
   void timerCallback(const ros::TimerEvent& event);
 
-  robot_trajectory::RobotTrajectory createTrajectory(const moveit::core::RobotState& start_state, const moveit::core::RobotState& end_state) const;
+  robot_trajectory::RobotTrajectory createTrivialTrajectory(const moveit::core::RobotState& start_state, const moveit::core::RobotState& end_state) const;
   bool executeJointTrajectory(const robot_trajectory::RobotTrajectory& trajectory, ros::Time start_time=ros::Time());
 
   void cmdVelCallback(const geometry_msgs::TwistConstPtr& twist_msg);
@@ -38,6 +38,8 @@ private:
 
 
   void publishRobotStateDisplay(const robot_state::RobotStatePtr& robot_state);
+
+  robot_state::RobotStatePtr getStateByDurationFromStart(const robot_trajectory::RobotTrajectory& trajectory, ros::Duration duration_after_start);
 
   // Parameters
   double control_rate_;
@@ -63,6 +65,8 @@ private:
   std::shared_ptr<whole_body_posture_optimization::PostureOptimizationResult> last_result_;
 
   std::shared_ptr<moveit_cpp::MoveItCpp> moveit_cpp_ptr_;
+  robot_trajectory::RobotTrajectoryPtr trajectory_; /// Trajectory currently in execution
+  ros::Time trajectory_start_time_; /// Start time of trajectory in execution
 
   ros::Subscriber cmd_vel_sub_;
   geometry_msgs::Twist latest_twist_;

@@ -145,6 +145,10 @@ bool WholeBodyPostureAssistance::initPostureOptimization() {
 }
 
 void WholeBodyPostureAssistance::timerCallback(const ros::TimerEvent &event) {
+  double event_delay = event.current_real.toSec() - event.current_expected.toSec();
+  if (std::abs(event_delay) > 1/control_rate_) {
+    ROS_WARN_STREAM("Update has been called with a delay of " << event_delay);
+  }
   update();
 }
 
@@ -183,10 +187,10 @@ void WholeBodyPostureAssistance::update() {
   }
   Eigen::Isometry3d current_pose_2d = util::pose3Dto2D(current_robot_pose);
 
-  Eigen::Isometry3d query_pose;
   double linear_abs = std::abs(latest_twist_.linear.x);
   double angular_abs = std::abs(latest_twist_.angular.z);
 
+  Eigen::Isometry3d query_pose;
   double epsilon = 1e-5;
   if (linear_abs < epsilon && angular_abs < epsilon) {
     query_pose = current_pose_2d;
@@ -212,8 +216,75 @@ void WholeBodyPostureAssistance::update() {
       ROS_ERROR_STREAM("Failed to retrieve current state");
       return;
     }
-    robot_trajectory::RobotTrajectory trajectory = createTrajectory(current_state, *result.result_state);
-    executeJointTrajectory(trajectory, ros::Time::now());
+
+    // Get expected state based on previous trajectory (if one is running)
+    ros::Time now = ros::Time::now();
+    bool replace_trajectory = trajectory_ && now > trajectory_start_time_;
+    bool trivial_trajectory = false;
+    if (replace_trajectory) {
+      ros::Duration duration_in_trajectory = now - trajectory_start_time_;
+      robot_state::RobotStatePtr expected_state = getStateByDurationFromStart(*trajectory_, duration_in_trajectory);
+      if (expected_state) {
+        // plan trajectory from expected state to target state
+        std::vector<robot_state::RobotStatePtr> states;
+        states.push_back(expected_state);
+        states.push_back(result.result_state);
+        std::vector<Eigen::Isometry3d> trajectory_world_poses;
+        std::vector<size_t> trajectory_start_indices;
+        robot_trajectory::RobotTrajectory trajectory_fake_odom = optimizer_->computeTrajectory(states, Eigen::Vector2d::Zero(), trajectory_world_poses, trajectory_start_indices);
+
+        if (trajectory_fake_odom.getWayPointCount() < 4) {
+          trivial_trajectory = true;
+        } else {
+          // Debug prints
+          double expected_velocity = expected_state->getVariableVelocity("world_virtual_joint/trans_x");
+          double expected_acceleration = expected_state->getVariableAcceleration("world_virtual_joint/trans_x");
+          double expected_rot_velocity = expected_state->getVariableVelocity("world_virtual_joint/trans_z");
+          double expected_rot_acceleration = expected_state->getVariableAcceleration("world_virtual_joint/trans_z");
+
+          ROS_WARN_STREAM("Expected velocity/acceleration: " << expected_velocity << ", " << expected_acceleration);
+          ROS_WARN_STREAM("Expected rot. velocity/acceleration: " << expected_rot_velocity << ", " << expected_rot_acceleration);
+
+          // Copy initial parameterization from expected state to first state
+          std::copy(expected_state->getVariableVelocities(),
+                    expected_state->getVariableVelocities() + expected_state->getVariableNames().size(),
+                    trajectory_fake_odom.getWayPointPtr(0)->getVariableVelocities());
+          std::copy(expected_state->getVariableAccelerations(),
+                    expected_state->getVariableAccelerations() + expected_state->getVariableNames().size(),
+                    trajectory_fake_odom.getWayPointPtr(0)->getVariableAccelerations());
+          robot_trajectory::RobotTrajectory trajectory = optimizer_->addTimeParameterization(trajectory_fake_odom, trajectory_world_poses);
+          executeJointTrajectory(trajectory, now);
+        }
+      } else {
+        replace_trajectory = false;
+      }
+
+    }
+
+    // Otherwise get current state and plan normally
+    if (!replace_trajectory) {
+      std::vector<whole_body_posture_optimization::PostureOptimizationResult> optimization_results;
+      whole_body_posture_optimization::PostureOptimizationResult start_result;
+      start_result.result_state = std::make_shared<robot_state::RobotState>(current_state);
+      optimization_results.push_back(start_result);
+      optimization_results.push_back(result);
+
+      std::vector<Eigen::Isometry3d> trajectory_world_poses;
+      std::vector<size_t> trajectory_start_indices;
+      robot_trajectory::RobotTrajectory trajectory_fake_odom = optimizer_->computeTrajectory(optimization_results,trajectory_world_poses, trajectory_start_indices);
+      if (trajectory_fake_odom.getWayPointCount() < 4) {
+        trivial_trajectory = true;
+      } else {
+        robot_trajectory::RobotTrajectory trajectory = optimizer_->addTimeParameterization(trajectory_fake_odom, trajectory_world_poses);
+        executeJointTrajectory(trajectory, ros::Time::now());
+      }
+    }
+
+    if (trivial_trajectory) {
+      robot_trajectory::RobotTrajectory trajectory = createTrivialTrajectory(current_state, *result.result_state);
+      executeJointTrajectory(trajectory, ros::Time::now());
+    }
+
   } else {
     last_result_ = nullptr;
   }
@@ -236,6 +307,9 @@ bool WholeBodyPostureAssistance::executeJointTrajectory(const robot_trajectory::
     return false;
   }
 
+  trajectory_ = std::make_shared<robot_trajectory::RobotTrajectory>(trajectory, true);
+  trajectory_start_time_ = start_time;
+
   // Execute trajectory
   moveit_msgs::RobotTrajectory robot_trajectory_msg;
   trajectory.getRobotTrajectoryMsg(robot_trajectory_msg);
@@ -243,7 +317,7 @@ bool WholeBodyPostureAssistance::executeJointTrajectory(const robot_trajectory::
   return moveit_cpp_ptr_->getTrajectoryExecutionManager()->pushAndExecute(robot_trajectory_msg);
 }
 
-robot_trajectory::RobotTrajectory WholeBodyPostureAssistance::createTrajectory(const moveit::core::RobotState &start_state,
+robot_trajectory::RobotTrajectory WholeBodyPostureAssistance::createTrivialTrajectory(const moveit::core::RobotState &start_state,
                                                   const moveit::core::RobotState &end_state) const
 {
   robot_trajectory::RobotTrajectory trajectory(robot_model_, move_group_);
@@ -266,6 +340,41 @@ void WholeBodyPostureAssistance::publishEnabledStatus() {
   std_msgs::Bool bool_msg;
   bool_msg.data = enabled_;
   enabled_status_pub_.publish(bool_msg);
+}
+robot_state::RobotStatePtr WholeBodyPostureAssistance::getStateByDurationFromStart(
+    const robot_trajectory::RobotTrajectory &trajectory, ros::Duration duration_after_start)
+{
+  // Check if requested time exceeds trajectory
+  if (trajectory.getDuration() < duration_after_start.toSec()) {
+    return {};
+  }
+
+  int before_index, after_index;
+  double progress; // value between 0 and 1
+  trajectory_->findWayPointIndicesForDurationAfterStart(duration_after_start.toSec(), before_index, after_index, progress);
+  const robot_state::RobotState& before_state = trajectory_->getWayPoint(before_index);
+  const robot_state::RobotState& after_state = trajectory_->getWayPoint(after_index);
+
+  // Linear interpolation for position and orientation
+  const Eigen::Isometry3d& before_pose = before_state.getJointTransform("world_virtual_joint");
+  const Eigen::Isometry3d& after_pose = after_state.getJointTransform("world_virtual_joint");
+
+  Eigen::Vector3d position_diff = after_pose.translation() - before_pose.translation();
+  Eigen::Vector3d interpolated_position = before_pose.translation() + progress * position_diff;
+
+  Eigen::Quaterniond before_orientation(before_pose.linear());
+  Eigen::Quaterniond after_orientation(after_pose.linear());
+  Eigen::Quaterniond interpolated_orientation = before_orientation.slerp(progress, after_orientation);
+
+  Eigen::Isometry3d interpolated_pose(interpolated_orientation);
+  interpolated_pose.translation() = interpolated_position;
+
+  // Compute full interpolated state and publish for visualization
+  robot_state::RobotStatePtr interpolated_state = std::make_shared<robot_state::RobotState>(trajectory_->getRobotModel());
+  before_state.interpolate(after_state, progress, *interpolated_state);
+  whole_body_posture_optimization::updateMoveitRobotState(*interpolated_state, interpolated_pose);
+
+  return interpolated_state;
 }
 
 }  // namespace hector_stability_assistance
