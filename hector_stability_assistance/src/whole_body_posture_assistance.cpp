@@ -70,7 +70,9 @@ bool WholeBodyPostureAssistance::init() {
 }
 
 bool WholeBodyPostureAssistance::loadParameters(const ros::NodeHandle &nh) {
-  enabled_ = nh.param("enabled", enabled_);
+  bool enabled = enabled_;
+  enabled = nh.param("enabled", enabled);
+  enabled_ = enabled;
   double control_rate = nh.param("control_rate", 10);
   if (control_rate <= 0) {
     ROS_ERROR("control_rate must be greater 0.");
@@ -113,11 +115,18 @@ bool WholeBodyPostureAssistance::initRobotModel() {
 }
 bool WholeBodyPostureAssistance::initPostureOptimization() {
   // Create SDF Model
+  ros::NodeHandle esdf_server_nh(nh_);
+  esdf_server_nh.setCallbackQueue(&esdf_server_queue_);
   ros::NodeHandle esdf_server_pnh(pnh_, "esdf_server");
-  esdf_server_ = std::make_shared<voxblox::EsdfServer>(nh_, esdf_server_pnh);
+  esdf_server_pnh.setCallbackQueue(&esdf_server_queue_);
+  esdf_server_ = std::make_shared<voxblox::EsdfServer>(esdf_server_nh, esdf_server_pnh);
+
   std::shared_ptr<sdf_contact_estimation::SdfModel> sdf_model = std::make_shared<sdf_contact_estimation::SdfModel>(pnh_);
   sdf_model->loadEsdf(esdf_server_->getEsdfMapPtr(), esdf_server_->getEsdfMaxDistance(), false);
   world_frame_ = esdf_server_->getWorldFrame();
+
+  esdf_update_thread_ = std::make_unique<std::thread>(&WholeBodyPostureAssistance::spinEsdfUpdate, this);
+  esdf_update_thread_->detach();
 
   hector_pose_prediction_interface::PosePredictor<double>::Ptr pose_predictor;
   std::string pose_predictor_name = pnh_.param<std::string>("pose_predictor", "sdf_contact_estimation::SDFContactEstimation");
@@ -166,7 +175,14 @@ void WholeBodyPostureAssistance::update() {
     return;
   }
   // Stop sending commands when twist is zero (repeatedly)
-  if (latest_twist_.linear.x == 0 && latest_twist_.angular.z == 0) {
+  double linear_speed, angular_speed;
+  {
+    std::lock_guard<std::mutex> lock(twist_update_mutex_);
+    linear_speed = latest_twist_.linear.x;
+    angular_speed = latest_twist_.angular.z;
+  }
+
+  if (linear_speed == 0 && angular_speed == 0) {
     if (last_twist_zero_) {
       return;
     }
@@ -197,8 +213,8 @@ void WholeBodyPostureAssistance::update() {
   Eigen::Isometry3d current_pose_2d = util::pose3Dto2D(current_robot_pose);
 
   Eigen::Isometry3d query_pose;
-  double linear_abs = std::abs(latest_twist_.linear.x);
-  double angular_abs = std::abs(latest_twist_.angular.z);
+  double linear_abs = std::abs(linear_speed);
+  double angular_abs = std::abs(angular_speed);
 
   double epsilon = 1e-5;
   if (linear_abs < epsilon && angular_abs < epsilon) {
@@ -208,14 +224,18 @@ void WholeBodyPostureAssistance::update() {
     double time_angular = angular_abs > 0.0 ? prediction_angle_ / angular_abs : std::numeric_limits<double>::max();
     double time = std::min(time_linear, time_angular);
 
-    Eigen::Isometry3d movement_delta_transform = util::computeDiffDriveTransform(latest_twist_.linear.x, latest_twist_.angular.z, time);
+    Eigen::Isometry3d movement_delta_transform = util::computeDiffDriveTransform(linear_speed, angular_speed, time);
     query_pose =  current_pose_2d * movement_delta_transform;
   }
 
   // Publish query pose
   visualization::publishPose(query_pose, world_frame_, query_pose_pub_);
 
-  auto result = optimizer_->findOptimalPosture(query_pose, optimizer_->getDefaultJointPositions(), last_result_->result_state);
+  whole_body_posture_optimization::PostureOptimizationResult result;
+  {
+    std::unique_lock<std::mutex> esdf_update_lock(esdf_update_mutex_);
+    result = optimizer_->findOptimalPosture(query_pose, optimizer_->getDefaultJointPositions(), last_result_->result_state);
+  }
   if (result.success && result.result_state) {
     publishRobotStateDisplay(result.result_state);
     last_result_ = std::make_shared<whole_body_posture_optimization::PostureOptimizationResult>(result);
@@ -233,6 +253,7 @@ void WholeBodyPostureAssistance::update() {
 }
 
 bool WholeBodyPostureAssistance::mapReceived() const {
+  std::unique_lock<std::mutex> esdf_update_lock(esdf_update_mutex_);
   return esdf_server_->getEsdfMapPtr()->getEsdfLayerPtr()->getNumberOfAllocatedBlocks() != 0;
 }
 
@@ -340,6 +361,17 @@ double WholeBodyPostureAssistance::computeSpeedScaling(double linear_speed, doub
   double scaling = max_base_speed / linear_speed_abs;
   scaling = std::min(scaling, 1.0); // Do not speed up
   return scaling;
+}
+
+void WholeBodyPostureAssistance::spinEsdfUpdate() {
+  ros::WallRate rate(10);
+  while (ros::ok()) {
+    {
+      std::lock_guard<std::mutex> lock(esdf_update_mutex_);
+      esdf_server_queue_.callAvailable();
+    }
+    rate.sleep();
+  }
 }
 
 }  // namespace hector_stability_assistance

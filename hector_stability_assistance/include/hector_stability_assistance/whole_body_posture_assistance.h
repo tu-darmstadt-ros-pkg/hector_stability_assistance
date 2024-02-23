@@ -12,6 +12,7 @@
 
 #include <hector_stability_assistance/robot_state_provider.h>
 #include <std_msgs/Bool.h>
+#include <condition_variable>
 
 namespace hector_stability_assistance {
 
@@ -28,6 +29,7 @@ private:
   bool initPostureOptimization();
 
   void timerCallback(const ros::TimerEvent& event);
+  void spinEsdfUpdate();
 
   robot_trajectory::RobotTrajectory createTrajectory(const moveit::core::RobotState& start_state, const moveit::core::RobotState& end_state) const;
   bool executeJointTrajectory(const robot_trajectory::RobotTrajectory& trajectory, ros::Time start_time=ros::Time());
@@ -44,7 +46,7 @@ private:
 
   // Parameters
   double control_rate_duration_;
-  bool enabled_;
+  std::atomic<bool> enabled_;
   std::string move_group_;
   double prediction_distance_;
   double prediction_angle_;
@@ -64,6 +66,10 @@ private:
   moveit::core::RobotStatePtr robot_state_;
 
   std::shared_ptr<voxblox::EsdfServer> esdf_server_;
+  mutable std::mutex esdf_update_mutex_;
+  ros::CallbackQueue esdf_server_queue_;
+  std::unique_ptr<std::thread> esdf_update_thread_;
+
   std::shared_ptr<whole_body_posture_optimization::WholeBodyPostureOptimization> optimizer_;
   std::shared_ptr<whole_body_posture_optimization::PostureOptimizationResult> last_result_;
 
@@ -72,7 +78,8 @@ private:
 
   ros::Subscriber cmd_vel_sub_;
   geometry_msgs::Twist latest_twist_;
-  bool last_twist_zero_;
+  mutable std::mutex twist_update_mutex_;
+  std::atomic<bool> last_twist_zero_;
 
   ros::Subscriber enable_sub_;
   ros::Publisher enabled_status_pub_;

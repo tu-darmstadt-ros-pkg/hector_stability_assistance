@@ -17,6 +17,7 @@ RobotStateProvider::RobotStateProvider(const ros::NodeHandle &nh, const std::vec
 }
 
 bool RobotStateProvider::getRobotPose(Eigen::Isometry3d &robot_pose) const {
+  std::lock_guard<std::recursive_mutex> lock(state_update_mutex_);
   geometry_msgs::TransformStamped transform_msg;
   try {
     transform_msg = tf_buffer_.lookupTransform(world_frame_, base_frame_,
@@ -32,10 +33,12 @@ bool RobotStateProvider::getRobotPose(Eigen::Isometry3d &robot_pose) const {
 
 const std::unordered_map<std::string, double>& RobotStateProvider::getJointState() const
 {
+  std::lock_guard<std::recursive_mutex> lock(state_update_mutex_);
   return joint_state_;
 }
 
 void RobotStateProvider::jointStateCallback(const sensor_msgs::JointStateConstPtr &joint_state_msg) {
+  std::lock_guard<std::recursive_mutex> lock(state_update_mutex_);
   // Mark seen joints
   if (!missing_joint_states_.empty()) {
     for (const auto & joint_name : joint_state_msg->name) {
@@ -52,10 +55,12 @@ void RobotStateProvider::jointStateCallback(const sensor_msgs::JointStateConstPt
 }
 
 bool RobotStateProvider::jointStateComplete() const {
+  std::lock_guard<std::recursive_mutex> lock(state_update_mutex_);
   return missing_joint_states_.empty();
 }
 
 const std::set<std::string> &RobotStateProvider::getMissingJointStates() const {
+  std::lock_guard<std::recursive_mutex> lock(state_update_mutex_);
   return missing_joint_states_;
 }
 
@@ -74,6 +79,7 @@ std::unordered_map<std::string, double> RobotStateProvider::extrapolateJointPosi
 }
 
 bool RobotStateProvider::getRobotState(moveit::core::RobotState &robot_state) const {
+  std::lock_guard<std::recursive_mutex> lock(state_update_mutex_);
   // Update robot state
   if (!jointStateComplete()) {
     return false;

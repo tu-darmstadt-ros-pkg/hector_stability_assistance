@@ -29,6 +29,7 @@ private:
   std::string world_frame_;
   std::string base_frame_;
 
+  mutable std::recursive_mutex state_update_mutex_;
   std::set<std::string> missing_joint_states_;
   std::unordered_map<std::string, double> joint_state_;
   tf2_ros::Buffer tf_buffer_;
