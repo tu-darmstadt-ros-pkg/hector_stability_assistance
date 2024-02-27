@@ -339,7 +339,6 @@ void WholeBodyPostureAssistance::publishEnabledStatus() {
 double WholeBodyPostureAssistance::approximateTimeForStateChange(const robot_state::RobotState &state_a,
                                                                  const robot_state::RobotState &state_b) {
   double required_time = 0.0;
-  std::string slowest_joint = "undefined";
   const robot_model::RobotModelConstPtr& model = state_a.getRobotModel();
   for (unsigned int i = 0; i < model->getJointModelCount(); ++i) {
     const moveit::core::JointModel* joint = model->getJointModel(i);
@@ -354,7 +353,6 @@ double WholeBodyPostureAssistance::approximateTimeForStateChange(const robot_sta
     double time = distance / velocity_limit; // assume movement with constant max. velocity
     if (time > required_time) {
       required_time = time;
-      slowest_joint = joint->getName();
     }
   }
 
@@ -396,5 +394,6 @@ void WholeBodyPostureAssistance::spinEsdfUpdate() {
     rate.sleep();
   }
 }
+
 
 }  // namespace hector_stability_assistance
