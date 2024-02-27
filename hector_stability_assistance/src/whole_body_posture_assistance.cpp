@@ -6,6 +6,7 @@
 
 #include <hector_stability_assistance/visualization.h>
 #include <hector_stability_assistance/util.h>
+#include <hector_pose_prediction_ros/visualization.h>
 
 namespace hector_stability_assistance {
 
@@ -53,6 +54,7 @@ bool WholeBodyPostureAssistance::init() {
   robot_marker_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("optimized_robot_state_marker", 10);
   enabled_status_pub_ = pnh_.advertise<std_msgs::Bool>("enabled_status", 10, true);
   cmd_vel_pub_ = pnh_.advertise<geometry_msgs::Twist>("cmd_vel_out", 10, false);
+  support_polygon_pub_ = pnh_.advertise<visualization_msgs::MarkerArray >("optimized_support_polygon", 10);
   publishEnabledStatus();
 
   // Subscribers
@@ -238,6 +240,7 @@ void WholeBodyPostureAssistance::update() {
   }
   if (result.success && result.result_state) {
     publishRobotStateDisplay(result.result_state);
+    publishSupportPolygon(result.support_polygon);
     last_result_ = std::make_shared<whole_body_posture_optimization::PostureOptimizationResult>(result);
     // Execute trajectory
     moveit::core::RobotState current_state(robot_model_);
@@ -261,6 +264,15 @@ void WholeBodyPostureAssistance::publishRobotStateDisplay(const moveit::core::Ro
   moveit_msgs::DisplayRobotState robot_state_msg;
   moveit::core::robotStateToRobotStateMsg(*robot_state, robot_state_msg.state);
   robot_display_pub_.publish(robot_state_msg);
+}
+
+void WholeBodyPostureAssistance::publishSupportPolygon(
+    const hector_pose_prediction_interface::SupportPolygon<double> &support_polygon)
+{
+  visualization::deleteAllMarkers(support_polygon_pub_);
+  visualization_msgs::MarkerArray support_polygon_marker_array;
+  hector_pose_prediction_interface::visualization::addSupportPolygonToMarkerArray(support_polygon_marker_array, support_polygon, world_frame_);
+  support_polygon_pub_.publish(support_polygon_marker_array);
 }
 
 bool WholeBodyPostureAssistance::executeJointTrajectory(const robot_trajectory::RobotTrajectory &trajectory, ros::Time start_time) {

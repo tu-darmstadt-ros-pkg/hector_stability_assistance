@@ -40,6 +40,7 @@ private:
 
 
   void publishRobotStateDisplay(const robot_state::RobotStatePtr& robot_state);
+  void publishSupportPolygon(const hector_pose_prediction_interface::SupportPolygon<double>& support_polygon);
 
   double computeSpeedScaling(double linear_speed, double angular_speed);
   double approximateTimeForStateChange(const robot_state::RobotState& state_a, const robot_state::RobotState& state_b);
@@ -87,6 +88,8 @@ private:
   ros::Publisher robot_display_pub_;
   ros::Publisher query_pose_pub_;
   ros::Publisher robot_marker_pub_;
+  ros::Publisher support_polygon_pub_;
+
 
   ros::Publisher cmd_vel_pub_;
 };
