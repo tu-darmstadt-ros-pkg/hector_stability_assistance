@@ -263,6 +263,17 @@ bool WholeBodyPostureAssistance::mapReceived() const {
 void WholeBodyPostureAssistance::publishRobotStateDisplay(const moveit::core::RobotStatePtr &robot_state) {
   moveit_msgs::DisplayRobotState robot_state_msg;
   moveit::core::robotStateToRobotStateMsg(*robot_state, robot_state_msg.state);
+  std_msgs::ColorRGBA color;
+  color.r = 0;
+  color.g = 1.0;
+  color.b = 0;
+  color.a = 1.0;
+  for (const auto& link: robot_model_->getLinkModelNames()) {
+    moveit_msgs::ObjectColor object_color;
+    object_color.color = color;
+    object_color.id = link;
+    robot_state_msg.highlight_links.push_back(object_color);
+  }
   robot_display_pub_.publish(robot_state_msg);
 }
 
