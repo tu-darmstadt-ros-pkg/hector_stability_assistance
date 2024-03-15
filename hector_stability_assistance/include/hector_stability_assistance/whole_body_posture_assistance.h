@@ -12,6 +12,7 @@
 
 #include <hector_stability_assistance/robot_state_provider.h>
 #include <std_msgs/Bool.h>
+#include <nav_msgs/Odometry.h>
 #include <condition_variable>
 
 namespace hector_stability_assistance {
@@ -35,6 +36,7 @@ private:
   bool executeJointTrajectory(const robot_trajectory::RobotTrajectory& trajectory, ros::Time start_time=ros::Time());
 
   void cmdVelCallback(geometry_msgs::Twist twist_msg);
+  void odomCallback(const nav_msgs::OdometryConstPtr& odom_msg);
   void enableCallback(const std_msgs::BoolConstPtr& bool_msg);
   void publishEnabledStatus();
 
@@ -79,9 +81,13 @@ private:
   mutable std::mutex trajectory_mutex_;
 
   ros::Subscriber cmd_vel_sub_;
+  ros::Subscriber odom_sub_;
   geometry_msgs::Twist latest_twist_;
+  geometry_msgs::Twist latest_twist_output_;
   mutable std::mutex twist_update_mutex_;
   std::atomic<bool> last_twist_zero_;
+
+  double stagnation_{0.0};
 
   ros::Subscriber enable_sub_;
   ros::Publisher enabled_status_pub_;
@@ -90,7 +96,6 @@ private:
   ros::Publisher query_pose_pub_;
   ros::Publisher robot_marker_pub_;
   ros::Publisher support_polygon_pub_;
-
 
   ros::Publisher cmd_vel_pub_;
 };

@@ -59,6 +59,7 @@ bool WholeBodyPostureAssistance::init() {
 
   // Subscribers
   cmd_vel_sub_ = pnh_.subscribe<geometry_msgs::Twist>("/cmd_vel", 10, &WholeBodyPostureAssistance::cmdVelCallback, this);
+  odom_sub_ = pnh_.subscribe<nav_msgs::Odometry>("/odom", 10, &WholeBodyPostureAssistance::odomCallback, this);
   enable_sub_ = pnh_.subscribe<std_msgs::Bool>("enable", 10, &WholeBodyPostureAssistance::enableCallback, this);
 
 
@@ -222,7 +223,8 @@ void WholeBodyPostureAssistance::update() {
   if (linear_abs < epsilon && angular_abs < epsilon) {
     query_pose = current_pose_2d;
   } else {
-    double time_linear = linear_abs > 0.0 ? prediction_distance_ / linear_abs : std::numeric_limits<double>::max();
+    double prediction_distance = prediction_distance_ + stagnation_ * prediction_distance_;
+    double time_linear = linear_abs > 0.0 ? prediction_distance / linear_abs : std::numeric_limits<double>::max();
     double time_angular = angular_abs > 0.0 ? prediction_angle_ / angular_abs : std::numeric_limits<double>::max();
     double time = std::min(time_linear, time_angular);
 
@@ -319,7 +321,8 @@ void WholeBodyPostureAssistance::cmdVelCallback(geometry_msgs::Twist twist_msg) 
   twist_msg.linear.x *= scaling;
   twist_msg.angular.z *= scaling;
 
-  cmd_vel_pub_.publish(twist_msg);
+  latest_twist_output_ = twist_msg;
+  cmd_vel_pub_.publish(latest_twist_output_);
 }
 
 void WholeBodyPostureAssistance::enableCallback(const std_msgs::BoolConstPtr &bool_msg) {
@@ -397,5 +400,16 @@ void WholeBodyPostureAssistance::spinEsdfUpdate() {
   }
 }
 
+void WholeBodyPostureAssistance::odomCallback(const nav_msgs::OdometryConstPtr& odom_msg) {
+  if (latest_twist_output_.linear.x > 0.05) {
+    double pct = odom_msg->twist.twist.linear.x / latest_twist_output_.linear.x;
+    pct = hector_math::clamp(pct, 0.0, 1.0);
+    stagnation_ = 1 - pct;
+  } else {
+    stagnation_ = 0.0;
+  }
+
+  ROS_INFO_STREAM("Current stagnation: " << stagnation_);
+}
 
 }  // namespace hector_stability_assistance

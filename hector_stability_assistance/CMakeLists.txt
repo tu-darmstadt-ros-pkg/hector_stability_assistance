@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   geometry_msgs
   visualization_msgs
+  nav_msgs
   hector_rviz_plugins_msgs
   eigen_conversions
   voxblox_ros
@@ -34,6 +35,7 @@ catkin_package(
    sensor_msgs
    geometry_msgs
    visualization_msgs
+   nav_msgs
    hector_rviz_plugins_msgs
    eigen_conversions
    voxblox_ros
