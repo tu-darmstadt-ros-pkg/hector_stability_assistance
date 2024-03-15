@@ -76,6 +76,7 @@ private:
 
   std::shared_ptr<moveit_cpp::MoveItCpp> moveit_cpp_ptr_;
   robot_trajectory::RobotTrajectoryPtr trajectory_;
+  mutable std::mutex trajectory_mutex_;
 
   ros::Subscriber cmd_vel_sub_;
   geometry_msgs::Twist latest_twist_;

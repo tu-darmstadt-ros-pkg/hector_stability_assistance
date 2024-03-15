@@ -293,6 +293,7 @@ bool WholeBodyPostureAssistance::executeJointTrajectory(const robot_trajectory::
     return false;
   }
 
+  std::unique_lock<std::mutex> trajectory_lock(trajectory_mutex_);
   trajectory_ = std::make_shared<robot_trajectory::RobotTrajectory>(trajectory, true);
 
   // Execute trajectory
@@ -359,6 +360,7 @@ double WholeBodyPostureAssistance::approximateTimeForStateChange(const robot_sta
   return required_time;
 }
 double WholeBodyPostureAssistance::computeSpeedScaling(double linear_speed, double angular_speed) {
+  std::unique_lock<std::mutex> trajectory_lock(trajectory_mutex_);
   if (!trajectory_ || !enabled_) {
     return 1.0;
   }
