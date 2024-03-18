@@ -51,6 +51,7 @@ private:
   // Parameters
   double control_rate_duration_;
   std::atomic<bool> enabled_;
+  bool stop_on_optimization_failure_{true};
   std::string move_group_;
   double prediction_distance_;
   double prediction_angle_;
@@ -87,6 +88,7 @@ private:
   geometry_msgs::Twist latest_twist_output_;
   mutable std::mutex twist_update_mutex_;
   std::atomic<bool> last_twist_zero_;
+  std::atomic<bool> last_optimization_successful_{true};
 
   double stagnation_{0.0};
 

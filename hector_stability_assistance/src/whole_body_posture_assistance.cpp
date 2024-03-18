@@ -94,6 +94,8 @@ bool WholeBodyPostureAssistance::loadParameters(const ros::NodeHandle &nh) {
     ROS_ERROR_STREAM("Required parameter '" << nh.getNamespace() << "/move_group is missing");
     return false;
   }
+  stop_on_optimization_failure_ = nh.param("stop_on_optimization_failure", stop_on_optimization_failure_);
+
   return true;
 }
 
@@ -379,7 +381,13 @@ double WholeBodyPostureAssistance::approximateTimeForStateChange(const robot_sta
 
   return required_time;
 }
+
 double WholeBodyPostureAssistance::computeSpeedScaling(double linear_speed, double angular_speed) {
+  // Stop on failed optimization
+  if (!last_optimization_successful_ && stop_on_optimization_failure_) {
+    return 0.0;
+  }
+
   std::unique_lock<std::mutex> trajectory_lock(trajectory_mutex_);
   if (!trajectory_ || !enabled_) {
     return 1.0;
@@ -431,6 +439,7 @@ void WholeBodyPostureAssistance::odomCallback(const nav_msgs::OdometryConstPtr& 
 }
 
 void WholeBodyPostureAssistance::publishOptimizationStatus(bool success) {
+  last_optimization_successful_ = success;
   std_msgs::Bool bool_msg;
   bool_msg.data = success;
   optimization_status_pub_.publish(bool_msg);
