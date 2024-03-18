@@ -108,12 +108,10 @@ bool WholeBodyPostureAssistance::initRobotModel() {
 
     try {
       robot_model_ = std::make_shared<moveit::core::RobotModel>(urdf_, srdf);
-      robot_state_ = std::make_shared<moveit::core::RobotState>(robot_model_);
     } catch (std::exception& e) {
       ROS_ERROR_STREAM( "Failed to initialize robot model: " << e.what());
       return false;
     }
-    robot_state_->setToDefaultValues();
   }
   return true;
 }
@@ -291,6 +289,27 @@ void WholeBodyPostureAssistance::publishRobotStateDisplay(const moveit::core::Ro
   robot_display_pub_.publish(robot_state_msg);
 }
 
+void WholeBodyPostureAssistance::hideRobotStateDisplay() {
+  robot_state::RobotState robot_state(robot_model_);
+  robot_state.setToDefaultValues();
+  moveit_msgs::DisplayRobotState robot_state_msg;
+  moveit::core::robotStateToRobotStateMsg(robot_state, robot_state_msg.state);
+
+  // Set color
+  std_msgs::ColorRGBA color;
+  color.a = 0;
+  color.r = 0;
+  color.g = 0;
+  color.b = 0;
+  for (const auto& link: robot_model_->getLinkModelNames()) {
+    moveit_msgs::ObjectColor object_color;
+    object_color.color = color;
+    object_color.id = link;
+    robot_state_msg.highlight_links.push_back(object_color);
+  }
+  robot_display_pub_.publish(robot_state_msg);
+}
+
 void WholeBodyPostureAssistance::publishSupportPolygon(
     const hector_pose_prediction_interface::SupportPolygon<double> &support_polygon)
 {
@@ -351,6 +370,9 @@ void WholeBodyPostureAssistance::publishEnabledStatus() {
   std_msgs::Bool bool_msg;
   bool_msg.data = enabled_;
   enabled_status_pub_.publish(bool_msg);
+  if (!enabled_) {
+    hideRobotStateDisplay();
+  }
 }
 
 double WholeBodyPostureAssistance::approximateTimeForStateChange(const robot_state::RobotState &state_a,

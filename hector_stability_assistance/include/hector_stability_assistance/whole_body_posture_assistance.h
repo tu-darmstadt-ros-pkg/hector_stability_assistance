@@ -43,6 +43,7 @@ private:
 
 
   void publishRobotStateDisplay(const robot_state::RobotStatePtr& robot_state, bool failed);
+  void hideRobotStateDisplay();
   void publishSupportPolygon(const hector_pose_prediction_interface::SupportPolygon<double>& support_polygon);
 
   double computeSpeedScaling(double linear_speed, double angular_speed);
@@ -68,7 +69,6 @@ private:
 
   std::shared_ptr<urdf::Model> urdf_;
   moveit::core::RobotModelConstPtr robot_model_;
-  moveit::core::RobotStatePtr robot_state_;
 
   std::shared_ptr<voxblox::EsdfServer> esdf_server_;
   mutable std::mutex esdf_update_mutex_;
