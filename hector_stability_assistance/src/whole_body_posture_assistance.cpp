@@ -4,6 +4,7 @@
 #include <moveit/robot_state/conversions.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <std_msgs/Float64.h>
+#include <std_msgs/Bool.h>
 
 #include <hector_stability_assistance/visualization.h>
 #include <hector_stability_assistance/util.h>
@@ -57,7 +58,9 @@ bool WholeBodyPostureAssistance::init() {
   cmd_vel_pub_ = pnh_.advertise<geometry_msgs::Twist>("cmd_vel_out", 10, false);
   support_polygon_pub_ = pnh_.advertise<visualization_msgs::MarkerArray >("optimized_support_polygon", 10);
   stagnation_pub_ = pnh_.advertise<std_msgs::Float64>("stagnation", 10);
+  optimization_status_pub_ = pnh_.advertise<std_msgs::Bool>("optimization_status", 10, true);
   publishEnabledStatus();
+  publishOptimizationStatus(true);
 
   // Subscribers
   cmd_vel_sub_ = pnh_.subscribe<geometry_msgs::Twist>("/cmd_vel", 10, &WholeBodyPostureAssistance::cmdVelCallback, this);
@@ -242,7 +245,9 @@ void WholeBodyPostureAssistance::update() {
     std::unique_lock<std::mutex> esdf_update_lock(esdf_update_mutex_);
     result = optimizer_->findOptimalPosture(query_pose, optimizer_->getDefaultJointPositions(), last_result_->result_state);
   }
-  if (result.success && result.result_state) {
+  bool success = result.success && result.result_state;
+  publishOptimizationStatus(success);
+  if (success) {
     publishRobotStateDisplay(result.result_state, false);
     publishSupportPolygon(result.support_polygon);
     last_result_ = std::make_shared<whole_body_posture_optimization::PostureOptimizationResult>(result);
@@ -423,6 +428,12 @@ void WholeBodyPostureAssistance::odomCallback(const nav_msgs::OdometryConstPtr& 
   std_msgs::Float64 stagnation_msg;
   stagnation_msg.data = stagnation_;
   stagnation_pub_.publish(stagnation_msg);
+}
+
+void WholeBodyPostureAssistance::publishOptimizationStatus(bool success) {
+  std_msgs::Bool bool_msg;
+  bool_msg.data = success;
+  optimization_status_pub_.publish(bool_msg);
 }
 
 }  // namespace hector_stability_assistance

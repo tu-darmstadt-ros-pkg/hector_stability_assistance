@@ -39,6 +39,7 @@ private:
   void odomCallback(const nav_msgs::OdometryConstPtr& odom_msg);
   void enableCallback(const std_msgs::BoolConstPtr& bool_msg);
   void publishEnabledStatus();
+  void publishOptimizationStatus(bool success);
 
 
   void publishRobotStateDisplay(const robot_state::RobotStatePtr& robot_state, bool failed);
@@ -97,6 +98,7 @@ private:
   ros::Publisher robot_marker_pub_;
   ros::Publisher support_polygon_pub_;
   ros::Publisher stagnation_pub_;
+  ros::Publisher optimization_status_pub_;
 
   ros::Publisher cmd_vel_pub_;
 };
