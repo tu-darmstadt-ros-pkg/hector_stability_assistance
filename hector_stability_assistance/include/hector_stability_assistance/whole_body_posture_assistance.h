@@ -49,12 +49,12 @@ private:
   double approximateTimeForStateChange(const robot_state::RobotState& state_a, const robot_state::RobotState& state_b);
 
   // Parameters
-  double control_rate_duration_;
-  std::atomic<bool> enabled_;
   bool stop_on_optimization_failure_{true};
+  double control_rate_duration_{0.1};
+  std::atomic<bool> enabled_{true};
   std::string move_group_;
-  double prediction_distance_;
-  double prediction_angle_;
+  double prediction_distance_{0.15};
+  double prediction_angle_{0.2};
 
   std::string base_frame_;
   std::string world_frame_;
@@ -63,7 +63,7 @@ private:
   ros::NodeHandle pnh_;
   ros::Timer timer_;
   ros::CallbackQueue timer_queue_;
-  ros::AsyncSpinner timer_spinner_;
+  ros::AsyncSpinner timer_spinner_{0, &timer_queue_};
   std::shared_ptr<RobotStateProvider> state_provider_;
 
   std::shared_ptr<urdf::Model> urdf_;
@@ -87,7 +87,7 @@ private:
   geometry_msgs::Twist latest_twist_;
   geometry_msgs::Twist latest_twist_output_;
   mutable std::mutex twist_update_mutex_;
-  std::atomic<bool> last_twist_zero_;
+  std::atomic<bool> last_twist_zero_{false};
   std::atomic<bool> last_optimization_successful_{true};
 
   double stagnation_{0.0};

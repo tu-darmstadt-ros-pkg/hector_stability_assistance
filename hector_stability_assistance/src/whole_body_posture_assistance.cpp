@@ -14,13 +14,7 @@ namespace hector_stability_assistance {
 
 WholeBodyPostureAssistance::WholeBodyPostureAssistance(const ros::NodeHandle &nh, const ros::NodeHandle &pnh)
 : nh_(nh),
-  pnh_(pnh),
-  enabled_(true),
-  control_rate_duration_(0.1),
-  prediction_distance_(0.15),
-  prediction_angle_(0.2),
-  last_twist_zero_(false),
-  timer_spinner_(0, &timer_queue_)
+  pnh_(pnh)
 {
   latest_twist_.linear.x = 0.0;
   latest_twist_.angular.z = 0.0;
