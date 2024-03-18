@@ -41,7 +41,7 @@ private:
   void publishEnabledStatus();
 
 
-  void publishRobotStateDisplay(const robot_state::RobotStatePtr& robot_state);
+  void publishRobotStateDisplay(const robot_state::RobotStatePtr& robot_state, bool failed);
   void publishSupportPolygon(const hector_pose_prediction_interface::SupportPolygon<double>& support_polygon);
 
   double computeSpeedScaling(double linear_speed, double angular_speed);

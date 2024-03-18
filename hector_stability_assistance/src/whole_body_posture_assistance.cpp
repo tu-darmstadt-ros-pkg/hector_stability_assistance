@@ -243,7 +243,7 @@ void WholeBodyPostureAssistance::update() {
     result = optimizer_->findOptimalPosture(query_pose, optimizer_->getDefaultJointPositions(), last_result_->result_state);
   }
   if (result.success && result.result_state) {
-    publishRobotStateDisplay(result.result_state);
+    publishRobotStateDisplay(result.result_state, false);
     publishSupportPolygon(result.support_polygon);
     last_result_ = std::make_shared<whole_body_posture_optimization::PostureOptimizationResult>(result);
     // Execute trajectory
@@ -255,6 +255,7 @@ void WholeBodyPostureAssistance::update() {
     robot_trajectory::RobotTrajectory trajectory = createTrajectory(current_state, *result.result_state);
     executeJointTrajectory(trajectory, ros::Time::now());
   } else {
+    publishRobotStateDisplay(last_result_->result_state, true);
     last_result_ = nullptr;
   }
 }
@@ -264,14 +265,22 @@ bool WholeBodyPostureAssistance::mapReceived() const {
   return esdf_server_->getEsdfMapPtr()->getEsdfLayerPtr()->getNumberOfAllocatedBlocks() != 0;
 }
 
-void WholeBodyPostureAssistance::publishRobotStateDisplay(const moveit::core::RobotStatePtr &robot_state) {
+void WholeBodyPostureAssistance::publishRobotStateDisplay(const moveit::core::RobotStatePtr &robot_state, bool failed) {
   moveit_msgs::DisplayRobotState robot_state_msg;
   moveit::core::robotStateToRobotStateMsg(*robot_state, robot_state_msg.state);
+
+  // Set color
   std_msgs::ColorRGBA color;
-  color.r = 0;
-  color.g = 1.0;
-  color.b = 0;
   color.a = 1.0;
+  if (failed) {
+    color.r = 1.0;
+    color.g = 0.0;
+    color.b = 0;
+  } else {
+    color.r = 0;
+    color.g = 1.0;
+    color.b = 0;
+  }
   for (const auto& link: robot_model_->getLinkModelNames()) {
     moveit_msgs::ObjectColor object_color;
     object_color.color = color;
@@ -333,6 +342,7 @@ void WholeBodyPostureAssistance::enableCallback(const std_msgs::BoolConstPtr &bo
   publishEnabledStatus();
   if (!enabled_) {
     moveit_cpp_ptr_->getTrajectoryExecutionManager()->stopExecution();
+
   }
 }
 
