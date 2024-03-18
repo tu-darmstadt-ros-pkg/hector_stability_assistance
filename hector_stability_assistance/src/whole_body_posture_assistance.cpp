@@ -399,14 +399,14 @@ double WholeBodyPostureAssistance::approximateTimeForStateChange(const robot_sta
 }
 
 double WholeBodyPostureAssistance::computeSpeedScaling(double linear_speed, double angular_speed) {
-  // Stop on failed optimization
-  if (!last_optimization_successful_ && stop_on_optimization_failure_) {
-    return 0.0;
-  }
-
   std::unique_lock<std::mutex> trajectory_lock(trajectory_mutex_);
   if (!trajectory_ || !enabled_) {
     return 1.0;
+  }
+
+  // Stop on failed optimization
+  if (!last_optimization_successful_ && stop_on_optimization_failure_) {
+    return 0.0;
   }
 
   moveit::core::RobotState current_state(robot_model_);
