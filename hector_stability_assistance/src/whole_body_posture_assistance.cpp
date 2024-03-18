@@ -3,6 +3,7 @@
 #include <sdf_contact_estimation/sdf_contact_estimation.h>
 #include <moveit/robot_state/conversions.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <std_msgs/Float64.h>
 
 #include <hector_stability_assistance/visualization.h>
 #include <hector_stability_assistance/util.h>
@@ -55,6 +56,7 @@ bool WholeBodyPostureAssistance::init() {
   enabled_status_pub_ = pnh_.advertise<std_msgs::Bool>("enabled_status", 10, true);
   cmd_vel_pub_ = pnh_.advertise<geometry_msgs::Twist>("cmd_vel_out", 10, false);
   support_polygon_pub_ = pnh_.advertise<visualization_msgs::MarkerArray >("optimized_support_polygon", 10);
+  stagnation_pub_ = pnh_.advertise<std_msgs::Float64>("stagnation", 10);
   publishEnabledStatus();
 
   // Subscribers
@@ -408,8 +410,9 @@ void WholeBodyPostureAssistance::odomCallback(const nav_msgs::OdometryConstPtr& 
   } else {
     stagnation_ = 0.0;
   }
-
-  ROS_INFO_STREAM("Current stagnation: " << stagnation_);
+  std_msgs::Float64 stagnation_msg;
+  stagnation_msg.data = stagnation_;
+  stagnation_pub_.publish(stagnation_msg);
 }
 
 }  // namespace hector_stability_assistance

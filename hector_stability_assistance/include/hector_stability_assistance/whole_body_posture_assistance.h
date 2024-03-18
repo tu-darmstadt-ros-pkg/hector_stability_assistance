@@ -96,6 +96,7 @@ private:
   ros::Publisher query_pose_pub_;
   ros::Publisher robot_marker_pub_;
   ros::Publisher support_polygon_pub_;
+  ros::Publisher stagnation_pub_;
 
   ros::Publisher cmd_vel_pub_;
 };
