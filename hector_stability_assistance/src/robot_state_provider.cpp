@@ -94,6 +94,7 @@ bool RobotStateProvider::getRobotState(moveit::core::RobotState &robot_state) co
     robot_state.setJointPositions(world_virtual_joint, current_robot_pose);
   }
   robot_state.setVariablePositions(std::map<std::string, double>(joint_positions.begin(), joint_positions.end()));
+  robot_state.update(true);
   return true;
 }
 
