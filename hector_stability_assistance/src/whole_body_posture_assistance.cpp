@@ -446,7 +446,7 @@ void WholeBodyPostureAssistance::spinEsdfUpdate() {
 
 void WholeBodyPostureAssistance::odomCallback(const nav_msgs::OdometryConstPtr& odom_msg) {
   double current_stagnation;
-  if (latest_twist_output_.linear.x > 0.05) {
+  if (std::abs(latest_twist_output_.linear.x) > 0.03) {
     double pct = odom_msg->twist.twist.linear.x / latest_twist_output_.linear.x;
     pct = hector_math::clamp(pct, 0.0, 1.0);
     current_stagnation = 1 - pct;
