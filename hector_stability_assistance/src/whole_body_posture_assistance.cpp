@@ -14,7 +14,7 @@ namespace hector_stability_assistance {
 
 WholeBodyPostureAssistance::WholeBodyPostureAssistance(const ros::NodeHandle &nh, const ros::NodeHandle &pnh)
 : nh_(nh),
-  pnh_(pnh)
+  pnh_(pnh), stagnation_mean_acc_(boost::accumulators::tag::rolling_window::window_size = 50)
 {
   latest_twist_.linear.x = 0.0;
   latest_twist_.angular.z = 0.0;
@@ -89,6 +89,9 @@ bool WholeBodyPostureAssistance::loadParameters(const ros::NodeHandle &nh) {
     return false;
   }
   stop_on_optimization_failure_ = nh.param("stop_on_optimization_failure", stop_on_optimization_failure_);
+  stagnation_mean_window_size_ = nh.param("stagnation_mean_window_size", stagnation_mean_window_size_);
+  stagnation_mean_acc_ = boost::accumulators::accumulator_set<double, ba::stats<ba::tag::rolling_mean>>(boost::accumulators::tag::rolling_window::window_size = stagnation_mean_window_size_);
+
 
   return true;
 }
@@ -442,13 +445,18 @@ void WholeBodyPostureAssistance::spinEsdfUpdate() {
 }
 
 void WholeBodyPostureAssistance::odomCallback(const nav_msgs::OdometryConstPtr& odom_msg) {
+  double current_stagnation;
   if (latest_twist_output_.linear.x > 0.05) {
     double pct = odom_msg->twist.twist.linear.x / latest_twist_output_.linear.x;
     pct = hector_math::clamp(pct, 0.0, 1.0);
-    stagnation_ = 1 - pct;
+    current_stagnation = 1 - pct;
   } else {
-    stagnation_ = 0.0;
+    current_stagnation = 0.0;
   }
+
+  // Rolling mean
+  stagnation_mean_acc_(current_stagnation);
+  stagnation_ = boost::accumulators::rolling_mean(stagnation_mean_acc_);
   std_msgs::Float64 stagnation_msg;
   stagnation_msg.data = stagnation_;
   stagnation_pub_.publish(stagnation_msg);

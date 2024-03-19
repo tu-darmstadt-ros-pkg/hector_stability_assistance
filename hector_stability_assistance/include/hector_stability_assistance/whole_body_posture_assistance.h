@@ -15,7 +15,14 @@
 #include <nav_msgs/Odometry.h>
 #include <condition_variable>
 
+#include <boost/accumulators/accumulators.hpp>
+#include <boost/accumulators/statistics/stats.hpp>
+#include <boost/accumulators/statistics/mean.hpp>
+#include <boost/accumulators/statistics/rolling_mean.hpp>
+
 namespace hector_stability_assistance {
+
+namespace ba = boost::accumulators;
 
 class WholeBodyPostureAssistance {
 public:
@@ -56,6 +63,7 @@ private:
   std::string move_group_;
   double prediction_distance_{0.15};
   double prediction_angle_{0.2};
+  int stagnation_mean_window_size_{50};
 
   std::string base_frame_;
   std::string world_frame_;
@@ -89,6 +97,8 @@ private:
   mutable std::mutex twist_update_mutex_;
   std::atomic<bool> last_twist_zero_{false};
   std::atomic<bool> last_optimization_successful_{true};
+  ba::accumulator_set<double, ba::stats<ba::tag::rolling_mean>> stagnation_mean_acc_;
+
 
   double stagnation_{0.0};
 
