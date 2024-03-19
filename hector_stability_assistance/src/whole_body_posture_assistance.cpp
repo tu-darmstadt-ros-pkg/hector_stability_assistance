@@ -225,7 +225,7 @@ void WholeBodyPostureAssistance::update() {
   if (linear_abs < epsilon && angular_abs < epsilon) {
     query_pose = current_pose_2d;
   } else {
-    double prediction_distance = prediction_distance_ + stagnation_ * prediction_distance_;
+    double prediction_distance = prediction_distance_ + 2 * stagnation_ * prediction_distance_;
     double time_linear = linear_abs > 0.0 ? prediction_distance / linear_abs : std::numeric_limits<double>::max();
     double time_angular = angular_abs > 0.0 ? prediction_angle_ / angular_abs : std::numeric_limits<double>::max();
     double time = std::min(time_linear, time_angular);
