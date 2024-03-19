@@ -84,7 +84,7 @@ private:
   std::unique_ptr<std::thread> esdf_update_thread_;
 
   std::shared_ptr<whole_body_posture_optimization::WholeBodyPostureOptimization> optimizer_;
-  std::shared_ptr<whole_body_posture_optimization::PostureOptimizationResult> last_result_;
+  robot_state::RobotStatePtr last_result_state_;
 
   std::shared_ptr<moveit_cpp::MoveItCpp> moveit_cpp_ptr_;
   robot_trajectory::RobotTrajectoryPtr trajectory_;

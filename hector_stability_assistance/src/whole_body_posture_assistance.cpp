@@ -199,22 +199,13 @@ void WholeBodyPostureAssistance::update() {
     ROS_WARN_STREAM_THROTTLE(1, "No map received yet");
     return;
   }
-  if (!last_result_) {
-    auto current_state = std::make_shared<moveit::core::RobotState>(robot_model_);
-    if (state_provider_->getRobotState(*current_state)) {
-      last_result_ = std::make_shared<whole_body_posture_optimization::PostureOptimizationResult>();
-      last_result_->result_state = current_state;
-    } else {
-      ROS_WARN_STREAM_THROTTLE(1, "Waiting for initial state");
-      return;
-    }
-  }
-
-
-  Eigen::Isometry3d current_robot_pose;
-  if (!state_provider_->getRobotPose(current_robot_pose)) {
+  auto current_state = std::make_shared<moveit::core::RobotState>(robot_model_);
+  if (!state_provider_->getRobotState(*current_state)) {
+    ROS_WARN_STREAM_THROTTLE(1, "Waiting for current state");
     return;
   }
+
+  const Eigen::Isometry3d& current_robot_pose = current_state->getJointTransform("world_virtual_joint");
   Eigen::Isometry3d current_pose_2d = util::pose3Dto2D(current_robot_pose);
 
   Eigen::Isometry3d query_pose;
@@ -240,25 +231,24 @@ void WholeBodyPostureAssistance::update() {
   whole_body_posture_optimization::PostureOptimizationResult result;
   {
     std::unique_lock<std::mutex> esdf_update_lock(esdf_update_mutex_);
-    result = optimizer_->findOptimalPosture(query_pose, optimizer_->getDefaultJointPositions(), last_result_->result_state);
+    result = optimizer_->findOptimalPosture(query_pose, optimizer_->getDefaultJointPositions(), current_state, last_result_state_);
   }
   bool success = result.success && result.result_state;
   publishOptimizationStatus(success);
   if (success) {
     publishRobotStateDisplay(result.result_state, false);
     publishSupportPolygon(result.support_polygon);
-    last_result_ = std::make_shared<whole_body_posture_optimization::PostureOptimizationResult>(result);
+    last_result_state_ = result.result_state;
     // Execute trajectory
-    moveit::core::RobotState current_state(robot_model_);
-    if (!state_provider_->getRobotState(current_state)) {
+    if (!state_provider_->getRobotState(*current_state)) {
       ROS_ERROR_STREAM("Failed to retrieve current state");
       return;
     }
-    robot_trajectory::RobotTrajectory trajectory = createTrajectory(current_state, *result.result_state);
+    robot_trajectory::RobotTrajectory trajectory = createTrajectory(*current_state, *result.result_state);
     executeJointTrajectory(trajectory, ros::Time::now());
   } else {
-    publishRobotStateDisplay(last_result_->result_state, true);
-    last_result_ = nullptr;
+    publishRobotStateDisplay(last_result_state_, true);
+    last_result_state_ = nullptr;
   }
 }
 
