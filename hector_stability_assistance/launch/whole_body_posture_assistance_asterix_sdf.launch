@@ -26,7 +26,7 @@
     <remap from="~/esdf_server/esdf_map_in" to="/esdf_server/esdf_map_out" />
 
     <!-- posture optimization lib parameters -->
-    <rosparam file="$(find whole_body_posture_optimization)/config/opt_asterix.yaml" command="load" />
+    <rosparam file="$(find hector_stability_assistance)/config/opt_asterix.yaml" command="load" />
 
     <remap from="/cmd_vel" to="/cmd_vel_unlimited"/>
     <remap from="~cmd_vel_out" to="$(arg cmd_vel_raw_topic)"/>
