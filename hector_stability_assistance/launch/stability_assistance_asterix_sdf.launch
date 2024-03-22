@@ -1,6 +1,11 @@
 <?xml version="1.0"?>
 
 <launch>
-  <include file="$(find hector_stability_assistance)/launch/speed_controller_asterix_sdf.launch"/>
-  <include file="$(find hector_stability_assistance)/launch/stability_visualization_asterix_sdf.launch"/>
+  <arg name="use_stability_assistance" default="$(optenv HECTOR_USE_STABILITY_ASSISTANCE false)"/>
+
+  <group if="$(arg use_stability_assistance)">
+    <include file="$(find hector_stability_assistance)/launch/speed_controller_asterix_sdf.launch"/>
+    <include file="$(find hector_stability_assistance)/launch/stability_visualization_asterix_sdf.launch"/>
+    <include file="$(find hector_stability_assistance)/launch/whole_body_posture_assistance_asterix_sdf.launch"/>
+  </group>
 </launch>
