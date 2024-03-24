@@ -7,7 +7,7 @@
 
   <arg name="node_name" value="whole_body_posture_assistance"/>
   <node pkg="hector_stability_assistance" type="whole_body_posture_assistance_node" name="$(arg node_name)" output="screen" respawn="true">
-    <param name="enabled" value="true"/>
+    <param name="enabled" value="false"/>
     <param name="control_rate" value="2"/>
     <param name="prediction_distance" value="0.15"/>
     <param name="prediction_angle" value="0.3"/>

@@ -2,6 +2,7 @@
 
 <launch>
   <node pkg="hector_stability_assistance" type="speed_controller_node" name="stability_speed_controller" output="screen" respawn="true" clear_params="true">
+    <param name="enabled" value="false"/>
     <param name="control_rate" value="20.0"/>
     <param name="prediction_horizon" value="1.0"/>
     <param name="maximum_time_step" value="0.25"/>
