@@ -10,6 +10,7 @@ namespace hector_stability_assistance {
 namespace visualization {
 
 void deleteAllMarkers(const ros::Publisher &pub);
+void deleteAllMarkers(visualization_msgs::MarkerArray& array);
 
 void fixIds(visualization_msgs::MarkerArray& array);
 

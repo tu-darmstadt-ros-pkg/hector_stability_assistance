@@ -486,6 +486,7 @@ void SpeedController::publishMultiRobotMarker(const std::vector<RobotTerrainStat
     return;
   }
   visualization_msgs::MarkerArray marker_array;
+  visualization::deleteAllMarkers(marker_array);
   for (unsigned int i = 0; i < robot_states.size(); ++i) {
     const auto& state = robot_states[i];
     robot_state_->setVariablePositions(std::map<std::string, double>(state.joint_positions.begin(), state.joint_positions.end()));
@@ -505,7 +506,6 @@ void SpeedController::publishMultiRobotMarker(const std::vector<RobotTerrainStat
     marker_array.markers.insert(marker_array.markers.end(), marker_array_temp.markers.begin(), marker_array_temp.markers.end());
   }
   visualization::fixIds(marker_array);
-  visualization::deleteAllMarkers(robot_marker_pub_);
   robot_marker_pub_.publish(marker_array);
 }
 
@@ -513,8 +513,8 @@ void SpeedController::publishSupportPolygon(const std::vector<RobotTerrainState>
   if (support_polygon_pub_.getNumSubscribers() == 0) {
     return;
   }
-  visualization::deleteAllMarkers(support_polygon_pub_);
   visualization_msgs::MarkerArray support_polygon_marker_array;
+  visualization::deleteAllMarkers(support_polygon_marker_array);
 //  for (const auto& state: robot_states) {
 //    hector_pose_prediction_interface::visualization::addSupportPolygonWithContactInformationToMarkerArray(
 //        support_polygon_marker_array, state.support_polygon, state.contact_information, world_frame_);

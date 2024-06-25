@@ -11,10 +11,14 @@ namespace visualization {
 
 void deleteAllMarkers(const ros::Publisher &pub) {
   visualization_msgs::MarkerArray array;
+  deleteAllMarkers(array);
+  pub.publish(array);
+}
+
+void deleteAllMarkers(visualization_msgs::MarkerArray& array) {
   visualization_msgs::Marker marker;
   marker.action = visualization_msgs::Marker::DELETEALL;
   array.markers.push_back(marker);
-  pub.publish(array);
 }
 
 void fixIds(visualization_msgs::MarkerArray& array) {
@@ -27,8 +31,8 @@ void publishSupportPolygon(const hector_pose_prediction_interface::SupportPolygo
                            const hector_pose_prediction_interface::ContactInformation<double>& contact_information,
                            ros::Publisher& publisher)
 {
-  visualization::deleteAllMarkers(publisher);
   visualization_msgs::MarkerArray support_polygon_marker_array;
+  visualization::deleteAllMarkers(support_polygon_marker_array);
   hector_pose_prediction_interface::visualization::addSupportPolygonWithContactInformationToMarkerArray(
       support_polygon_marker_array, support_polygon, contact_information, "world"); //TODO map name
   publisher.publish(support_polygon_marker_array);

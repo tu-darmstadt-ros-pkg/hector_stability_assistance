@@ -308,8 +308,8 @@ void WholeBodyPostureAssistance::hideRobotStateDisplay() {
 void WholeBodyPostureAssistance::publishSupportPolygon(
     const hector_pose_prediction_interface::SupportPolygon<double> &support_polygon)
 {
-  visualization::deleteAllMarkers(support_polygon_pub_);
   visualization_msgs::MarkerArray support_polygon_marker_array;
+  visualization::deleteAllMarkers(support_polygon_marker_array);
   hector_pose_prediction_interface::visualization::addSupportPolygonToMarkerArray(support_polygon_marker_array, support_polygon, world_frame_);
   support_polygon_pub_.publish(support_polygon_marker_array);
 }
