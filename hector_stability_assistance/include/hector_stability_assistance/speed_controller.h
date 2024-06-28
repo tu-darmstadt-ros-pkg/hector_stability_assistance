@@ -31,6 +31,7 @@ class SpeedController {
 public:
   SpeedController(const ros::NodeHandle& nh, const ros::NodeHandle& pnh);
   bool init();
+  void setEnabled(bool enabled);
 private:
   bool loadParameters(const ros::NodeHandle& nh);
   bool loadJoints(const ros::NodeHandle& nh);
@@ -59,6 +60,7 @@ private:
   void enableCallback(const std_msgs::BoolConstPtr& bool_msg);
   void publishEnabledStatus();
 
+  void clearVisualizations();
   void publishTerrainInteraction(const std::vector<RobotTerrainState>& robot_states);
   void publishMultiRobotState(const std::vector<RobotTerrainState>& robot_states) const;
   void publishMultiRobotMarker(const std::vector<RobotTerrainState>& robot_states) const;
@@ -71,7 +73,7 @@ private:
 
   /// Parameters
   bool enabled_;
-  double control_rate_;
+  ros::Duration control_duration_;
   double prediction_horizon_;
   double maximum_time_step_;
   double safety_distance_;

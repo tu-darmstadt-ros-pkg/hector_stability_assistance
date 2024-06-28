@@ -17,7 +17,7 @@ SpeedController::SpeedController(const ros::NodeHandle& nh, const ros::NodeHandl
 : nh_(nh),
   pnh_(pnh),
   enabled_(true),
-  control_rate_(20.0),
+  control_duration_(1.0 / 20.0),
   prediction_horizon_(2.0),
   maximum_time_step_(0.25),
   safety_distance_(0.0),
@@ -71,18 +71,29 @@ bool SpeedController::init() {
   cmd_vel_sub_ = pnh_.subscribe<geometry_msgs::Twist>("cmd_vel_in", 10, &SpeedController::cmdVelCallback, this);
   enable_sub_ = pnh_.subscribe<std_msgs::Bool>("enable", 10, &SpeedController::enableCallback, this);
 
-  timer_ = nh_.createTimer(ros::Duration(1/control_rate_), &SpeedController::timerCallback, this, false, true);
+  timer_ = nh_.createTimer(control_duration_, &SpeedController::timerCallback, this, false, true);
 
   return true;
 }
 
+void SpeedController::setEnabled(bool enabled) {
+  ROS_INFO_STREAM((enabled ? "Enabling " : "Disabling ") << "stability speed controller.");
+  if (!enabled && enabled != enabled_) {
+    clearVisualizations();
+  }
+  enabled_ = enabled;
+  publishEnabledStatus();
+}
+
+
 bool SpeedController::loadParameters(const ros::NodeHandle& nh) {
   enabled_ = nh.param("enabled", enabled_);
-  control_rate_ = nh.param("control_rate", control_rate_);
-  if (control_rate_ <= 0) {
+  double control_rate = nh.param("control_rate", 20.0);
+  if (control_rate <= 0) {
     ROS_ERROR("control_rate must be greater 0.");
     return false;
   }
+  control_duration_ = ros::Duration(1.0 / control_rate);
   prediction_horizon_ = nh.param("prediction_horizon", prediction_horizon_);
   if (prediction_horizon_ < 0) {
     ROS_ERROR("prediction_horizon must be greater or equal 0.");
@@ -502,6 +513,7 @@ void SpeedController::publishMultiRobotMarker(const std::vector<RobotTerrainStat
       Eigen::Isometry3d marker_pose_world = state.robot_pose * marker_pose_base;
       tf::poseEigenToMsg(marker_pose_world, marker.pose);
       marker.header.frame_id = world_frame_;
+      marker.lifetime = control_duration_;
     }
     marker_array.markers.insert(marker_array.markers.end(), marker_array_temp.markers.begin(), marker_array_temp.markers.end());
   }
@@ -522,6 +534,9 @@ void SpeedController::publishSupportPolygon(const std::vector<RobotTerrainState>
   hector_pose_prediction_interface::visualization::addSupportPolygonWithContactInformationToMarkerArray(
       support_polygon_marker_array, robot_states.back().support_polygon, robot_states.back().contact_information, world_frame_);
   visualization::fixIds(support_polygon_marker_array);
+  for (auto& marker: support_polygon_marker_array.markers) {
+    marker.lifetime = control_duration_;
+  }
   support_polygon_pub_.publish(support_polygon_marker_array);
 }
 
@@ -535,6 +550,7 @@ void SpeedController::publishPredictedPath(const std::vector<RobotTerrainState>&
   path_marker.id = 0;
   path_marker.type = visualization_msgs::Marker::LINE_STRIP;
   path_marker.action = visualization_msgs::Marker::ADD;
+  path_marker.lifetime = control_duration_;
   path_marker.scale.x = 0.02;
   path_marker.color.r = 0.0;
   path_marker.color.g = 0.0;
@@ -548,6 +564,7 @@ void SpeedController::publishPredictedPath(const std::vector<RobotTerrainState>&
   sphere_list_marker.id = 1;
   sphere_list_marker.type = visualization_msgs::Marker::SPHERE_LIST;
   sphere_list_marker.action = visualization_msgs::Marker::ADD;
+  sphere_list_marker.lifetime = control_duration_;
   sphere_list_marker.scale.x = 0.05;
   sphere_list_marker.scale.y = 0.05;
   sphere_list_marker.scale.z = 0.05;
@@ -569,6 +586,7 @@ void SpeedController::publishPredictedPath(const std::vector<RobotTerrainState>&
   }
 
   visualization_msgs::MarkerArray array;
+  visualization::deleteAllMarkers(array);
   array.markers.push_back(path_marker);
   array.markers.push_back(sphere_list_marker);
   predicted_path_pub_.publish(array);
@@ -596,15 +614,24 @@ std_msgs::ColorRGBA SpeedController::stabilityToColorMsg(double stability) const
 }
 
 void SpeedController::enableCallback(const std_msgs::BoolConstPtr& bool_msg) {
-  enabled_ = bool_msg->data;
-  ROS_INFO_STREAM((enabled_ ? "Enabling " : "Disabling ") << "stability speed controller.");
-  publishEnabledStatus();
+  setEnabled(bool_msg->data);
 }
 
 void SpeedController::publishEnabledStatus() {
   std_msgs::Bool bool_msg;
   bool_msg.data = enabled_;
   enabled_status_pub_.publish(bool_msg);
+}
+
+void SpeedController::clearVisualizations() {
+  hector_rviz_plugins_msgs::DisplayMultiRobotState display_msg;
+  display_msg.header.frame_id = world_frame_;
+  robot_display_pub_.publish(display_msg);
+
+  // For some reason, these delete commands are ignored
+  visualization::deleteAllMarkers(support_polygon_pub_);
+  visualization::deleteAllMarkers(predicted_path_pub_);
+  visualization::deleteAllMarkers(robot_marker_pub_);
 }
 
 }  // namespace hector_stability_assistance
