@@ -245,7 +245,12 @@ void WholeBodyPostureAssistance::update() {
       return;
     }
     robot_trajectory::RobotTrajectory trajectory = createTrajectory(*current_state, *result.result_state);
+    std::unique_lock<std::mutex> execution_lock(execution_mutex_);
+    if (!enabled_) {
+      return;
+    }
     executeJointTrajectory(trajectory, ros::Time::now());
+    execution_lock.unlock();
   } else {
     if (last_result_state_) {
       publishRobotStateDisplay(last_result_state_, true);
@@ -262,6 +267,7 @@ bool WholeBodyPostureAssistance::mapReceived() const {
 void WholeBodyPostureAssistance::publishRobotStateDisplay(const moveit::core::RobotStatePtr &robot_state, bool failed) {
   moveit_msgs::DisplayRobotState robot_state_msg;
   moveit::core::robotStateToRobotStateMsg(*robot_state, robot_state_msg.state);
+  robot_state_msg.hide = !enabled_;
 
   // Set color
   std_msgs::ColorRGBA color;
@@ -289,19 +295,7 @@ void WholeBodyPostureAssistance::hideRobotStateDisplay() {
   robot_state.setToDefaultValues();
   moveit_msgs::DisplayRobotState robot_state_msg;
   moveit::core::robotStateToRobotStateMsg(robot_state, robot_state_msg.state);
-
-  // Set color
-  std_msgs::ColorRGBA color;
-  color.a = 0;
-  color.r = 0;
-  color.g = 0;
-  color.b = 0;
-  for (const auto& link: robot_model_->getLinkModelNames()) {
-    moveit_msgs::ObjectColor object_color;
-    object_color.color = color;
-    object_color.id = link;
-    robot_state_msg.highlight_links.push_back(object_color);
-  }
+  robot_state_msg.hide = true;
   robot_display_pub_.publish(robot_state_msg);
 }
 
@@ -323,6 +317,7 @@ bool WholeBodyPostureAssistance::executeJointTrajectory(const robot_trajectory::
 
   std::unique_lock<std::mutex> trajectory_lock(trajectory_mutex_);
   trajectory_ = std::make_shared<robot_trajectory::RobotTrajectory>(trajectory, true);
+  trajectory_lock.unlock();
 
   // Execute trajectory
   moveit_msgs::RobotTrajectory robot_trajectory_msg;
@@ -356,8 +351,9 @@ void WholeBodyPostureAssistance::enableCallback(const std_msgs::BoolConstPtr &bo
   ROS_INFO_STREAM((enabled_ ? "Enabling " : "Disabling ") << " whole body posture assistance.");
   publishEnabledStatus();
   if (!enabled_) {
+    std::unique_lock<std::mutex> execution_lock(execution_mutex_);
     moveit_cpp_ptr_->getTrajectoryExecutionManager()->stopExecution();
-
+    hideRobotStateDisplay();
   }
 }
 
@@ -365,9 +361,6 @@ void WholeBodyPostureAssistance::publishEnabledStatus() {
   std_msgs::Bool bool_msg;
   bool_msg.data = enabled_;
   enabled_status_pub_.publish(bool_msg);
-  if (!enabled_) {
-    hideRobotStateDisplay();
-  }
 }
 
 double WholeBodyPostureAssistance::approximateTimeForStateChange(const robot_state::RobotState &state_a,
