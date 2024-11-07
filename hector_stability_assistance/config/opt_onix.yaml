@@ -53,7 +53,7 @@ flipper_optimization:
     #algorithm: LN_NELDERMEAD
     #algorithm: LN_SBPLX
     #algorithm: GD_STOGO
-    maxeval: 500
+    maxeval: 200
     #stopval: -1.0
 
   local_solver:
@@ -71,15 +71,15 @@ flipper_optimization:
     verbose: false
     # state costs
     stability_weight: 1.0
-    stability_nominal_value: 1.5
+    #stability_nominal_value: 1.5 #TODO find value
     stability_exp_parameters_a: 14.0
     stability_exp_parameters_b: -2.6
     stability_exp_parameters_c: 0.3
     support_area_weight: 0
     track_contact_weight: 8
-    track_contact_nominal_value: 0.2
+    #track_contact_nominal_value: 0.2 #TODO find value
     body_contact_weight: 50
-    roll_cost_weight: 0.0  # robot can't influence its roll angle with tracks
+    roll_cost_weight: 0.0
     position_deviation_weight: 0
     # transition costs
     lorentzian_sigma: 0.05  #0.1 #0.01 #0.15
