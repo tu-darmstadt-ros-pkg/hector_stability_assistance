@@ -54,7 +54,7 @@ flipper_optimization:
     #algorithm: LN_SBPLX
     #algorithm: GD_STOGO
     maxeval: 200
-    #stopval: -1.0
+    stopval: -1.0
 
   local_solver:
     enabled: false
