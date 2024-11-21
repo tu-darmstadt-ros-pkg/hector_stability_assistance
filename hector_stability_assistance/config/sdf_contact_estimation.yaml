@@ -2,4 +2,4 @@ max_iterations: 5
 iteration_contact_threshold: 0.025
 final_contact_threshold: 0.1
 chassis_contact_threshold: 0.1
-convexity_threshold: 0.01
+convexity_threshold: 0.2
