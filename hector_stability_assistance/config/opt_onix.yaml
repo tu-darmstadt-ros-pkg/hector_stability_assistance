@@ -59,7 +59,7 @@ flipper_optimization:
     #stopval: -1.0
 
   local_solver:
-    enabled: false
+    enabled: true
     algorithm: LN_NELDERMEAD
     maxeval: 10
 
